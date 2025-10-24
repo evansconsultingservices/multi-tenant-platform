@@ -4,6 +4,9 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// Apply dark mode to document root
+document.documentElement.classList.add('dark');
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
