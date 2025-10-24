@@ -90,6 +90,11 @@ module.exports = {
               requiredVersion: deps["@radix-ui/react-switch"],
               eager: true,
             },
+            "@radix-ui/react-select": {
+              singleton: true,
+              requiredVersion: deps["@radix-ui/react-select"],
+              eager: true,
+            },
             "lucide-react": {
               singleton: true,
               requiredVersion: deps["lucide-react"],

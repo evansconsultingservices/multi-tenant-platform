@@ -24,6 +24,7 @@ export const CompanyUsersTab: React.FC<CompanyUsersTabProps> = ({ company }) => 
 
   useEffect(() => {
     loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.id]);
 
   const loadUsers = async () => {

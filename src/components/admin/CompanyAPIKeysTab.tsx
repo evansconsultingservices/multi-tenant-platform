@@ -15,7 +15,7 @@ import {
 import { Company } from '@/types/company.types';
 import { APIKey, CreateAPIKeyInput } from '@/types/apikey.types';
 import { APIKeyService } from '@/services/apikey.service';
-import { Copy, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Copy, Trash2 } from 'lucide-react';
 
 interface CompanyAPIKeysTabProps {
   company: Company;
@@ -34,6 +34,7 @@ export const CompanyAPIKeysTab: React.FC<CompanyAPIKeysTabProps> = ({ company })
 
   useEffect(() => {
     loadAPIKeys();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.id]);
 
   const loadAPIKeys = async () => {

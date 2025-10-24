@@ -21,6 +21,7 @@ export const CompanyDetailsPage: React.FC = () => {
 
   useEffect(() => {
     loadCompany();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
   const loadCompany = async () => {

@@ -51,6 +51,7 @@ export const ManageUserToolsDialog: React.FC<ManageUserToolsDialogProps> = ({
     if (open) {
       loadTools();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user.id]);
 
   const loadTools = async () => {

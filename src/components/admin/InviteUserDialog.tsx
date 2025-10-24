@@ -50,6 +50,7 @@ export const InviteUserDialog: React.FC<InviteUserDialogProps> = ({
     if (open) {
       loadCompanies();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const loadCompanies = async () => {

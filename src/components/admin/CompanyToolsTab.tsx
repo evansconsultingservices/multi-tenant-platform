@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +35,7 @@ export const CompanyToolsTab: React.FC<CompanyToolsTabProps> = ({ company }) => 
 
   useEffect(() => {
     loadTools();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.id]);
 
   const loadTools = async () => {
