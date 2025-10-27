@@ -83,6 +83,15 @@ export const ToolFrame: React.FC<{ toolId: string }> = ({ toolId }) => {
       };
     }
 
+    if (tool.url.includes('3005') || tool.url.includes('podcast-manager') || tool.name.toLowerCase().includes('podcast')) {
+      return {
+        remoteName: 'podcastManager',
+        exposedModule: './App',
+        remoteUrl: getRemoteEntryUrl(tool.url),
+        fallbackUrl: tool.url
+      };
+    }
+
     // Default: try to use as iframe fallback
     return {
       remoteName: 'unknown',

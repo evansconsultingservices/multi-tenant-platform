@@ -18,6 +18,7 @@ module.exports = {
             helloWorld: `helloWorld@${process.env.REACT_APP_HELLO_WORLD_REMOTE_URL || 'http://localhost:3001'}/remoteEntry.js`,
             cloudinaryTool: `cloudinaryTool@${process.env.REACT_APP_CLOUDINARY_REMOTE_URL || 'http://localhost:3002'}/remoteEntry.js`,
             videoAssetManager: `videoAssetManager@${process.env.REACT_APP_VIDEO_ASSET_MANAGER_REMOTE_URL || 'http://localhost:3004'}/remoteEntry.js`,
+            podcastManager: `podcastManager@${process.env.REACT_APP_PODCAST_MANAGER_REMOTE_URL || 'http://localhost:3005'}/remoteEntry.js`,
           },
           exposes: {
             // Expose AuthContext so child tools can access authentication state and companyId
