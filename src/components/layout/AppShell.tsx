@@ -44,24 +44,6 @@ export const AppShell: React.FC = () => {
   const [toolMenus, setToolMenus] = useState<Map<string, MenuItem[]>>(new Map());
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['admin']));
 
-  useEffect(() => {
-    const loadUserTools = async () => {
-      if (!user) return;
-
-      try {
-        const userTools = await ToolService.getUserTools(user.id);
-        setTools(userTools);
-
-        // Load menu configs for each tool
-        loadToolMenus(userTools);
-      } catch (error) {
-        console.error('Error loading tools:', error);
-      }
-    };
-
-    loadUserTools();
-  }, [user, loadToolMenus]);
-
   // Map tool to Module Federation config
   const getToolConfig = useCallback((tool: Tool): { remoteName: string; remoteUrl: string } | null => {
     const getRemoteEntryUrl = (baseUrl: string): string => {
@@ -115,6 +97,24 @@ export const AppShell: React.FC = () => {
 
     setToolMenus(newToolMenus);
   }, [getToolConfig]);
+
+  useEffect(() => {
+    const loadUserTools = async () => {
+      if (!user) return;
+
+      try {
+        const userTools = await ToolService.getUserTools(user.id);
+        setTools(userTools);
+
+        // Load menu configs for each tool
+        loadToolMenus(userTools);
+      } catch (error) {
+        console.error('Error loading tools:', error);
+      }
+    };
+
+    loadUserTools();
+  }, [user, loadToolMenus]);
 
   const toggleMenu = (menuId: string) => {
     setExpandedMenus(prev => {
