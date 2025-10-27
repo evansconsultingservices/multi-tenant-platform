@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UpdateToolUrlsButton } from './UpdateToolUrlsButton';
 import { FixOrphanedUsersButton } from './FixOrphanedUsersButton';
+import { VersionInfo } from './VersionInfo';
 
 export const AdminSettings: React.FC = () => {
   return (
@@ -13,6 +14,8 @@ export const AdminSettings: React.FC = () => {
       <UpdateToolUrlsButton />
 
       <FixOrphanedUsersButton />
+
+      <VersionInfo />
 
       <Card>
         <CardHeader>
