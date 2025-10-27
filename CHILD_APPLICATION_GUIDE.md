@@ -1,5 +1,18 @@
 # Child Application Development Guide
 
+> **⚠️ DEPRECATED - Use [BUILDING_CHILD_APPS.md](/BUILDING_CHILD_APPS.md) instead**
+>
+> This guide is outdated and missing critical features:
+> - ❌ Menu configuration system not documented
+> - ❌ Version tracking system not documented
+> - ❌ Latest Module Federation patterns missing
+>
+> **Please refer to [BUILDING_CHILD_APPS.md](/BUILDING_CHILD_APPS.md) for the complete, up-to-date guide.**
+
+---
+
+# Original Guide (Deprecated)
+
 This guide will help you build and integrate tool applications with the multi-tenant platform using the **Shadcn/ui component framework**.
 
 ## Overview
