@@ -152,11 +152,23 @@ export const AppShell: React.FC = () => {
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center space-x-2 px-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">MT</span>
-            </div>
+            <svg className="h-8 w-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="50" cy="50" r="12" fill="#f97316"/>
+              <circle cx="50" cy="15" r="10" fill="#f97316"/>
+              <circle cx="85" cy="30" r="10" fill="#f97316"/>
+              <circle cx="85" cy="70" r="10" fill="#f97316"/>
+              <circle cx="50" cy="85" r="10" fill="#f97316"/>
+              <circle cx="15" cy="70" r="10" fill="#f97316"/>
+              <circle cx="15" cy="30" r="10" fill="#f97316"/>
+              <line x1="50" y1="38" x2="50" y2="25" stroke="#f97316" strokeWidth="4"/>
+              <line x1="59" y1="45" x2="75" y2="35" stroke="#f97316" strokeWidth="4"/>
+              <line x1="59" y1="55" x2="75" y2="65" stroke="#f97316" strokeWidth="4"/>
+              <line x1="50" y1="62" x2="50" y2="75" stroke="#f97316" strokeWidth="4"/>
+              <line x1="41" y1="55" x2="25" y2="65" stroke="#f97316" strokeWidth="4"/>
+              <line x1="41" y1="45" x2="25" y2="35" stroke="#f97316" strokeWidth="4"/>
+            </svg>
             <div>
-              <h1 className="text-sm font-semibold">Multi-Tenant Platform</h1>
+              <h1 className="text-sm font-semibold">Media Orchestrator</h1>
               <p className="text-xs text-muted-foreground">Tools & Applications</p>
             </div>
           </div>
