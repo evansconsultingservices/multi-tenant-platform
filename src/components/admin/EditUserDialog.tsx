@@ -43,7 +43,7 @@ export const EditUserDialog: React.FC<EditUserDialogProps> = ({
         lastName: user.lastName,
         email: user.email,
         role: user.role,
-        companyId: user.companyId,
+        companyId: user.companyId || '',
         department: user.department || '',
         phoneNumber: user.phoneNumber || '',
       });

@@ -5,6 +5,9 @@ import { LoginPage } from '@/components/auth/LoginPage';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AdminPanel } from '@/components/admin/AdminPanel';
+import { AdminSettings } from '@/components/admin/AdminSettings';
+import { CompanyManagement } from '@/components/admin/CompanyManagement';
+import { ToolManagement } from '@/components/admin/ToolManagement';
 import { CompanyDetailsPage } from '@/components/admin/CompanyDetailsPage';
 import { AppShell } from '@/components/layout/AppShell';
 import { ToolPage } from '@/components/tools/ToolFrame';
@@ -27,7 +30,16 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="tools/:toolId" element={<ToolPage />} />
-              <Route path="admin" element={<AdminPanel />} />
+
+              {/* Admin routes with nested children */}
+              <Route path="admin" element={<AdminPanel />}>
+                <Route index element={<Navigate to="companies" replace />} />
+                <Route path="companies" element={<CompanyManagement />} />
+                <Route path="tools" element={<ToolManagement />} />
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
+
+              {/* Company details page */}
               <Route path="admin/company/:companyId" element={<CompanyDetailsPage />} />
             </Route>
           </Routes>

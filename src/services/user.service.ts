@@ -13,7 +13,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { UserProfile, UserRole } from '../types/user.types';
+import { UserProfile, UserRole, validateUserProfile } from '../types/user.types';
 
 export class UserService {
   /**
@@ -76,12 +76,41 @@ export class UserService {
    */
   static async createUser(userData: Omit<UserProfile, 'id' | 'accountCreated' | 'lastLogin' | 'totalLoginCount'>): Promise<string> {
     try {
+      // Validate user data based on role
+      validateUserProfile(userData);
+
       const usersRef = collection(db, 'users');
 
       // Check if user with email already exists
       const existing = await this.getUserByEmail(userData.email);
       if (existing) {
-        throw new Error('User with this email already exists');
+        // If user exists but doesn't have a companyId, update them instead of throwing error
+        if (!existing.companyId && userData.companyId) {
+          await this.updateUser(existing.id, {
+            companyId: userData.companyId,
+            department: userData.department,
+            role: userData.role,
+          });
+          console.log(`Updated existing user ${existing.email} with companyId ${userData.companyId}`);
+          return existing.id;
+        }
+
+        // If trying to add to same company, just return the user ID
+        if (existing.companyId === userData.companyId) {
+          console.log(`User ${existing.email} already belongs to company ${userData.companyId}`);
+          return existing.id;
+        }
+
+        // User belongs to a different company - provide detailed error
+        if (existing.companyId && userData.companyId && existing.companyId !== userData.companyId) {
+          throw new Error(
+            `User ${userData.email} already belongs to company ID: ${existing.companyId}. ` +
+            `Cannot add to company ID: ${userData.companyId}. ` +
+            `Remove user from their current company first, or reassign them.`
+          );
+        }
+
+        throw new Error(`User with email ${userData.email} already exists`);
       }
 
       const docRef = await addDoc(usersRef, {
@@ -104,6 +133,21 @@ export class UserService {
    */
   static async updateUser(userId: string, updates: Partial<UserProfile>): Promise<void> {
     try {
+      // If updating role or companyId, validate the combination
+      if (updates.role || updates.companyId !== undefined) {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        if (userDoc.exists()) {
+          const currentData = userDoc.data();
+          const mergedData = {
+            ...currentData,
+            ...updates,
+            role: updates.role || currentData.role,
+            companyId: updates.companyId !== undefined ? updates.companyId : currentData.companyId,
+          };
+          validateUserProfile(mergedData);
+        }
+      }
+
       const userRef = doc(db, 'users', userId);
 
       // Remove fields that shouldn't be updated directly

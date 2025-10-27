@@ -92,42 +92,32 @@ export const ToolManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-foreground">Tool Management</h2>
-        </div>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading tools...</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading tools...</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Tool Management</h2>
-          <p className="text-muted-foreground text-sm">
-            Manage and configure tools available on the platform
-          </p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          Add New Tool
-        </Button>
-      </div>
-
+    <>
       <Card>
         <CardHeader>
-          <CardTitle>Available Tools</CardTitle>
-          <CardDescription>
-            Configure tools, manage access, and monitor usage
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>Available Tools</CardTitle>
+              <CardDescription>
+                Configure tools, manage access, and monitor usage
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              Add New Tool
+            </Button>
+          </div>
           <div className="pt-4">
             <Input
               placeholder="Search tools..."
@@ -227,6 +217,6 @@ export const ToolManagement: React.FC = () => {
         tool={selectedTool}
         onUpdateTool={handleUpdateTool}
       />
-    </div>
+    </>
   );
 };

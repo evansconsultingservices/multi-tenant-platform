@@ -25,7 +25,7 @@ export const InitializeHelloWorldTool: React.FC = () => {
         try {
           const existingTools = await ToolService.getAllTools();
           helloWorldExists = existingTools.some(tool =>
-            tool.name === 'Hello World Tool' || tool.url === 'http://localhost:3001'
+            tool.name === 'Hello World Tool'
           );
         } catch (fetchError) {
           // Tools collection might not exist yet - that's okay, we'll create it
@@ -40,11 +40,13 @@ export const InitializeHelloWorldTool: React.FC = () => {
 
         setMessage('Adding Hello World Tool...');
 
+        const toolUrl = process.env.REACT_APP_HELLO_WORLD_REMOTE_URL || 'http://localhost:3001';
+
         const toolData: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'> = {
           name: 'Hello World Tool',
           description: 'A simple demonstration tool that displays a hello world message using Module Federation',
           icon: '👋',
-          url: 'http://localhost:3001',
+          url: toolUrl,
           status: 'active',
           category: 'Demo Tools',
           version: '1.0.0',
@@ -74,7 +76,7 @@ export const InitializeHelloWorldTool: React.FC = () => {
           // Technical details
           subdomain: 'hello-world',
           port: 3001,
-          healthCheckUrl: 'http://localhost:3001',
+          healthCheckUrl: toolUrl,
 
           // UI configuration
           displayOrder: 0,

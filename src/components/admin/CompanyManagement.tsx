@@ -120,42 +120,32 @@ export const CompanyManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-foreground">Company Management</h2>
-        </div>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading companies...</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading companies...</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Company Management</h2>
-          <p className="text-muted-foreground text-sm">
-            Manage companies, subscriptions, and multi-tenant data isolation
-          </p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          Add Company
-        </Button>
-      </div>
-
+    <>
       <Card>
         <CardHeader>
-          <CardTitle>Companies</CardTitle>
-          <CardDescription>
-            View and manage all companies on the platform
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>Companies</CardTitle>
+              <CardDescription>
+                View and manage all companies on the platform
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              Add Company
+            </Button>
+          </div>
           <div className="pt-4">
             <Input
               placeholder="Search companies..."
@@ -258,6 +248,6 @@ export const CompanyManagement: React.FC = () => {
         onOpenChange={setShowCreateDialog}
         onCreateCompany={handleCreateCompany}
       />
-    </div>
+    </>
   );
 };

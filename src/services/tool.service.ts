@@ -173,18 +173,33 @@ export class ToolService {
   }
 
   /**
-   * Get tools accessible by a specific user (with cascading company access)
-   * Logic: Company access grants access to all users, user-level grants/revokes override
+   * Get tools accessible by a specific user (with role-based access)
+   * Logic:
+   * - super_admin: sees ALL tools (no company restriction)
+   * - admin/user: company-based access with user-level overrides
    */
   static async getUserTools(userId: string): Promise<Tool[]> {
     try {
+      // Step 1: Get user data to check role
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+      const userData = userDoc.data();
+      const userRole = userData.role;
+
+      // Step 2: Super admins see ALL tools
+      if (userRole === 'super_admin') {
+        return this.getAllTools();
+      }
+
       const toolMap = new Map<string, Tool>();
       const explicitRevocations = new Set<string>();
 
-      // Step 1: Get user's company ID
-      const companyId = await this.getUserCompanyId(userId);
+      // Step 3: Get user's company ID
+      const companyId = userData.companyId || userData.organizationId || null;
 
-      // Step 2: Get company-level tool access
+      // Step 4: Get company-level tool access
       if (companyId) {
         const companyTools = await this.getCompanyTools(companyId);
         companyTools.forEach(tool => {
@@ -192,7 +207,7 @@ export class ToolService {
         });
       }
 
-      // Step 3: Get user-level tool access (both active and inactive for override logic)
+      // Step 5: Get user-level tool access (both active and inactive for override logic)
       const userAccessRef = collection(db, 'userToolAccess');
       const userAccessQuery = query(
         userAccessRef,
@@ -200,7 +215,7 @@ export class ToolService {
       );
       const userAccessSnapshot = await getDocs(userAccessQuery);
 
-      // Step 4: Process user-level access
+      // Step 6: Process user-level access
       for (const accessDoc of userAccessSnapshot.docs) {
         const accessData = accessDoc.data();
         const toolId = accessData.toolId;
@@ -224,12 +239,12 @@ export class ToolService {
         }
       }
 
-      // Step 5: Remove explicitly revoked tools
+      // Step 7: Remove explicitly revoked tools
       explicitRevocations.forEach(toolId => {
         toolMap.delete(toolId);
       });
 
-      // Step 6: Convert to array and sort
+      // Step 8: Convert to array and sort
       const tools = Array.from(toolMap.values());
       return tools.sort((a, b) => a.displayOrder - b.displayOrder);
     } catch (error) {
@@ -438,11 +453,27 @@ export class ToolService {
   }
 
   /**
-   * Check if user has access to a specific tool (with cascading company access)
+   * Check if user has access to a specific tool (with role-based and cascading company access)
    */
-  static async hasToolAccess(userId: string, toolId: string): Promise<{ hasAccess: boolean; accessLevel?: string; source?: 'user' | 'company' }> {
+  static async hasToolAccess(userId: string, toolId: string): Promise<{ hasAccess: boolean; accessLevel?: string; source?: 'user' | 'company' | 'super_admin' }> {
     try {
-      // Step 1: Check for explicit user-level access (both active and inactive)
+      // Step 1: Check user role
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (!userDoc.exists()) {
+        return { hasAccess: false };
+      }
+      const userData = userDoc.data();
+
+      // Super admins have access to everything
+      if (userData.role === 'super_admin') {
+        return {
+          hasAccess: true,
+          accessLevel: 'admin',
+          source: 'super_admin',
+        };
+      }
+
+      // Step 2: Check for explicit user-level access (both active and inactive)
       const userAccessRef = collection(db, 'userToolAccess');
       const userAccessQuery = query(
         userAccessRef,

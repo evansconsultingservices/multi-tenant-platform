@@ -25,7 +25,9 @@ export interface UserProfile {
   phoneNumber?: string;
 
   // Company (Multi-tenant context)
-  companyId: string; // Reference to Company document
+  // Optional: super_admins don't belong to companies
+  // Required: admins and users must belong to a company
+  companyId?: string; // Reference to Company document
   organizationRole?: string; // Deprecated: Use companyId instead
   department?: string;
 
@@ -54,4 +56,28 @@ export interface AuthUser {
   displayName: string | null;
   photoURL: string | null;
   emailVerified: boolean;
+}
+
+/**
+ * Check if a role requires company membership
+ */
+export function requiresCompany(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.USER;
+}
+
+/**
+ * Validate user profile based on role requirements
+ */
+export function validateUserProfile(user: Partial<UserProfile>): void {
+  if (!user.role) {
+    throw new Error('User role is required');
+  }
+
+  if (requiresCompany(user.role) && !user.companyId) {
+    throw new Error(`${user.role} must belong to a company`);
+  }
+
+  if (user.role === UserRole.SUPER_ADMIN && user.companyId) {
+    throw new Error('super_admin should not belong to a company');
+  }
 }

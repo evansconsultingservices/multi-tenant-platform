@@ -14,10 +14,10 @@ module.exports = {
           name: "shell",
           filename: "remoteEntry.js",
           remotes: {
-            // Map remote apps - in production these URLs would be dynamic
-            helloWorld: "helloWorld@http://localhost:3001/remoteEntry.js",
-            cloudinaryTool: "cloudinaryTool@http://localhost:3002/remoteEntry.js",
-            videoAssetManager: "videoAssetManager@http://localhost:3004/remoteEntry.js",
+            // Map remote apps - URLs come from environment variables in production
+            helloWorld: `helloWorld@${process.env.REACT_APP_HELLO_WORLD_REMOTE_URL || 'http://localhost:3001'}/remoteEntry.js`,
+            cloudinaryTool: `cloudinaryTool@${process.env.REACT_APP_CLOUDINARY_REMOTE_URL || 'http://localhost:3002'}/remoteEntry.js`,
+            videoAssetManager: `videoAssetManager@${process.env.REACT_APP_VIDEO_ASSET_MANAGER_REMOTE_URL || 'http://localhost:3004'}/remoteEntry.js`,
           },
           exposes: {
             // Expose AuthContext so child tools can access authentication state and companyId
@@ -93,6 +93,11 @@ module.exports = {
             "@radix-ui/react-select": {
               singleton: true,
               requiredVersion: deps["@radix-ui/react-select"],
+              eager: true,
+            },
+            "@radix-ui/react-collapsible": {
+              singleton: true,
+              requiredVersion: deps["@radix-ui/react-collapsible"],
               eager: true,
             },
             "lucide-react": {

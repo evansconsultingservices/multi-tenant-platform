@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/contexts/AuthContext';
 import { ToolService } from '@/services/tool.service';
+import { MenuLoaderService } from '@/services/menuLoader.service';
 import { Tool } from '@/types/tool.types';
+import { MenuItem } from '@/types/menu.types';
 import {
   Settings,
   LogOut,
   Wrench,
   Home,
-  Shield
+  Shield,
+  ChevronRight,
+  Building2,
+  Cog
 } from 'lucide-react';
 import {
   Sidebar,
@@ -23,6 +29,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
@@ -32,6 +41,8 @@ export const AppShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [tools, setTools] = useState<Tool[]>([]);
+  const [toolMenus, setToolMenus] = useState<Map<string, MenuItem[]>>(new Map());
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['admin']));
 
   useEffect(() => {
     const loadUserTools = async () => {
@@ -40,6 +51,9 @@ export const AppShell: React.FC = () => {
       try {
         const userTools = await ToolService.getUserTools(user.id);
         setTools(userTools);
+
+        // Load menu configs for each tool
+        loadToolMenus(userTools);
       } catch (error) {
         console.error('Error loading tools:', error);
       }
@@ -47,6 +61,72 @@ export const AppShell: React.FC = () => {
 
     loadUserTools();
   }, [user]);
+
+  const loadToolMenus = async (tools: Tool[]) => {
+    const newToolMenus = new Map<string, MenuItem[]>();
+
+    for (const tool of tools) {
+      const config = getToolConfig(tool);
+      if (config) {
+        try {
+          const menuItems = await MenuLoaderService.loadToolMenu(
+            config.remoteName,
+            config.remoteUrl
+          );
+          if (menuItems.length > 0) {
+            newToolMenus.set(tool.id, menuItems);
+          }
+        } catch (error) {
+          console.log(`No menu config for ${tool.name}`);
+        }
+      }
+    }
+
+    setToolMenus(newToolMenus);
+  };
+
+  // Map tool to Module Federation config
+  const getToolConfig = (tool: Tool): { remoteName: string; remoteUrl: string } | null => {
+    const getRemoteEntryUrl = (baseUrl: string): string => {
+      const url = new URL(baseUrl);
+      return `${url.origin}/remoteEntry.js`;
+    };
+
+    if (tool.url.includes('3001') || tool.name.toLowerCase().includes('hello world')) {
+      return {
+        remoteName: 'helloWorld',
+        remoteUrl: getRemoteEntryUrl(tool.url),
+      };
+    }
+
+    if (tool.url.includes('3002') || tool.name.toLowerCase().includes('cloudinary')) {
+      return {
+        remoteName: 'cloudinaryTool',
+        remoteUrl: getRemoteEntryUrl(tool.url),
+      };
+    }
+
+    if (tool.url.includes('3004') || tool.name.toLowerCase().includes('video asset')) {
+      return {
+        remoteName: 'videoAssetManager',
+        remoteUrl: getRemoteEntryUrl(tool.url),
+      };
+    }
+
+    return null;
+  };
+
+  const toggleMenu = (menuId: string) => {
+    setExpandedMenus(prev => {
+      const next = new Set(prev);
+      if (next.has(menuId)) {
+        next.delete(menuId);
+      } else {
+        next.add(menuId);
+      }
+      return next;
+    });
+  };
 
   const handleSignOut = async () => {
     try {
@@ -60,31 +140,12 @@ export const AppShell: React.FC = () => {
     return null;
   }
 
-  // Navigation items
-  const navigationItems = [
-    {
-      name: 'Home',
-      icon: Home,
-      path: '/dashboard',
-      isActive: location.pathname === '/dashboard'
-    },
-    ...tools.map(tool => ({
-      name: tool.name,
-      icon: Wrench, // Use same icon for all tools
-      path: `/tools/${tool.id}`,
-      isActive: location.pathname === `/tools/${tool.id}`
-    }))
+  // Admin menu items
+  const adminMenuItems = [
+    { id: 'companies', label: 'Companies', icon: Building2, path: '/admin/companies' },
+    { id: 'tools', label: 'Tools', icon: Wrench, path: '/admin/tools' },
+    { id: 'settings', label: 'Settings', icon: Cog, path: '/admin/settings' },
   ];
-
-  // Add admin link for admins
-  if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-    navigationItems.push({
-      name: 'Admin',
-      icon: Shield,
-      path: '/admin',
-      isActive: location.pathname.startsWith('/admin')
-    });
-  }
 
   return (
     <SidebarProvider>
@@ -108,19 +169,119 @@ export const AppShell: React.FC = () => {
             <SidebarGroupLabel>Navigation</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {navigationItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <SidebarMenuItem key={item.path}>
-                      <SidebarMenuButton
-                        isActive={item.isActive}
-                        onClick={() => navigate(item.path)}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span>{item.name}</span>
-                      </SidebarMenuButton>
+                {/* Home */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={location.pathname === '/dashboard'}
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    <Home className="h-4 w-4" />
+                    <span>Home</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                {/* Admin Menu - Collapsible */}
+                {user && (user.role === 'admin' || user.role === 'super_admin') && (
+                  <Collapsible
+                    open={expandedMenus.has('admin')}
+                    onOpenChange={() => toggleMenu('admin')}
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton
+                          isActive={location.pathname.startsWith('/admin')}
+                        >
+                          <Shield className="h-4 w-4" />
+                          <span>Admin</span>
+                          <ChevronRight
+                            className={`ml-auto h-4 w-4 transition-transform ${
+                              expandedMenus.has('admin') ? 'rotate-90' : ''
+                            }`}
+                          />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {adminMenuItems.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                              <SidebarMenuSubItem key={item.id}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={location.pathname === item.path}
+                                >
+                                  <Link to={item.path}>
+                                    <Icon className="h-4 w-4" />
+                                    <span>{item.label}</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            );
+                          })}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
                     </SidebarMenuItem>
-                  );
+                  </Collapsible>
+                )}
+
+                {/* Tool Menus - Collapsible */}
+                {tools.map(tool => {
+                  const hasSubMenu = toolMenus.has(tool.id) && toolMenus.get(tool.id)!.length > 0;
+
+                  if (hasSubMenu) {
+                    return (
+                      <Collapsible
+                        key={tool.id}
+                        open={expandedMenus.has(tool.id)}
+                        onOpenChange={() => toggleMenu(tool.id)}
+                      >
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton
+                              isActive={location.pathname === `/tools/${tool.id}`}
+                            >
+                              <Wrench className="h-4 w-4" />
+                              <span>{tool.name}</span>
+                              <ChevronRight
+                                className={`ml-auto h-4 w-4 transition-transform ${
+                                  expandedMenus.has(tool.id) ? 'rotate-90' : ''
+                                }`}
+                              />
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {toolMenus.get(tool.id)!.map((menuItem) => (
+                                <SidebarMenuSubItem key={menuItem.id}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location.pathname === `/tools/${tool.id}${menuItem.path}`}
+                                  >
+                                    <Link to={`/tools/${tool.id}${menuItem.path}`}>
+                                      <span>{menuItem.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuItem>
+                      </Collapsible>
+                    );
+                  } else {
+                    // Simple menu item without sub-menu
+                    return (
+                      <SidebarMenuItem key={tool.id}>
+                        <SidebarMenuButton
+                          isActive={location.pathname === `/tools/${tool.id}`}
+                          onClick={() => navigate(`/tools/${tool.id}`)}
+                        >
+                          <Wrench className="h-4 w-4" />
+                          <span>{tool.name}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  }
                 })}
               </SidebarMenu>
             </SidebarGroupContent>

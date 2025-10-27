@@ -61,8 +61,10 @@ export const ManageUserToolsDialog: React.FC<ManageUserToolsDialogProps> = ({
       // Get all available tools
       const allTools = await ToolService.getAllTools();
 
-      // Get company tools
-      const companyTools = await ToolService.getCompanyTools(user.companyId);
+      // Get company tools (only if user has a company)
+      const companyTools = user.companyId
+        ? await ToolService.getCompanyTools(user.companyId)
+        : [];
       const companyToolsMap = new Map(companyTools.map(t => [t.id, t]));
 
       // Get user's explicit tool access

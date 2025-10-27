@@ -103,7 +103,8 @@ export const InviteUserDialog: React.FC<InviteUserDialogProps> = ({
       onOpenChange(false);
     } catch (error) {
       console.error('Error inviting user:', error);
-      alert('Failed to invite user. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to invite user: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
