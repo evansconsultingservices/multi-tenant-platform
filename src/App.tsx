@@ -11,6 +11,7 @@ import { ToolManagement } from '@/components/admin/ToolManagement';
 import { CompanyDetailsPage } from '@/components/admin/CompanyDetailsPage';
 import { AppShell } from '@/components/layout/AppShell';
 import { ToolPage } from '@/components/tools/ToolFrame';
+import { NotFound } from '@/components/common/NotFound';
 
 function App() {
   return (
@@ -41,6 +42,9 @@ function App() {
 
               {/* Company details page */}
               <Route path="admin/company/:companyId" element={<CompanyDetailsPage />} />
+
+              {/* 404 catch-all route */}
+              <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
         </AuthProvider>
