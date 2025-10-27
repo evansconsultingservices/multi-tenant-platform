@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -60,33 +60,10 @@ export const AppShell: React.FC = () => {
     };
 
     loadUserTools();
-  }, [user]);
-
-  const loadToolMenus = async (tools: Tool[]) => {
-    const newToolMenus = new Map<string, MenuItem[]>();
-
-    for (const tool of tools) {
-      const config = getToolConfig(tool);
-      if (config) {
-        try {
-          const menuItems = await MenuLoaderService.loadToolMenu(
-            config.remoteName,
-            config.remoteUrl
-          );
-          if (menuItems.length > 0) {
-            newToolMenus.set(tool.id, menuItems);
-          }
-        } catch (error) {
-          console.log(`No menu config for ${tool.name}`);
-        }
-      }
-    }
-
-    setToolMenus(newToolMenus);
-  };
+  }, [user, loadToolMenus]);
 
   // Map tool to Module Federation config
-  const getToolConfig = (tool: Tool): { remoteName: string; remoteUrl: string } | null => {
+  const getToolConfig = useCallback((tool: Tool): { remoteName: string; remoteUrl: string } | null => {
     const getRemoteEntryUrl = (baseUrl: string): string => {
       const url = new URL(baseUrl);
       return `${url.origin}/remoteEntry.js`;
@@ -114,7 +91,30 @@ export const AppShell: React.FC = () => {
     }
 
     return null;
-  };
+  }, []);
+
+  const loadToolMenus = useCallback(async (tools: Tool[]) => {
+    const newToolMenus = new Map<string, MenuItem[]>();
+
+    for (const tool of tools) {
+      const config = getToolConfig(tool);
+      if (config) {
+        try {
+          const menuItems = await MenuLoaderService.loadToolMenu(
+            config.remoteName,
+            config.remoteUrl
+          );
+          if (menuItems.length > 0) {
+            newToolMenus.set(tool.id, menuItems);
+          }
+        } catch (error) {
+          console.log(`No menu config for ${tool.name}`);
+        }
+      }
+    }
+
+    setToolMenus(newToolMenus);
+  }, [getToolConfig]);
 
   const toggleMenu = (menuId: string) => {
     setExpandedMenus(prev => {
