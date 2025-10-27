@@ -130,12 +130,10 @@ module.exports = {
         })
       );
 
-      // Fix for Module Federation - use root path for dev server
-      if (process.env.NODE_ENV === 'development') {
-        webpackConfig.output.publicPath = "/";
-      } else {
-        webpackConfig.output.publicPath = "auto";
-      }
+      // Fix for Module Federation - use root path for all environments
+      // Always use "/" to ensure absolute paths in production builds
+      // This prevents relative path issues when refreshing on nested routes
+      webpackConfig.output.publicPath = "/";
 
       // Handle async chunks properly
       webpackConfig.optimization.runtimeChunk = false;
