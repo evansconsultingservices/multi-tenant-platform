@@ -84,6 +84,7 @@ export const AppShell: React.FC = () => {
 
   const loadToolMenus = useCallback(async (tools: Tool[]) => {
     const newToolMenus = new Map<string, MenuItem[]>();
+    const toolsWithMenus = new Set<string>();
 
     for (const tool of tools) {
       const config = getToolConfig(tool);
@@ -95,6 +96,7 @@ export const AppShell: React.FC = () => {
           );
           if (menuItems.length > 0) {
             newToolMenus.set(tool.id, menuItems);
+            toolsWithMenus.add(tool.id);
           }
         } catch (error) {
           console.log(`No menu config for ${tool.name}`);
@@ -103,6 +105,15 @@ export const AppShell: React.FC = () => {
     }
 
     setToolMenus(newToolMenus);
+
+    // Auto-expand tools that have submenus
+    if (toolsWithMenus.size > 0) {
+      setExpandedMenus(prev => {
+        const next = new Set(prev);
+        toolsWithMenus.forEach(id => next.add(id));
+        return next;
+      });
+    }
   }, [getToolConfig]);
 
   useEffect(() => {
@@ -259,7 +270,11 @@ export const AppShell: React.FC = () => {
                             <SidebarMenuButton
                               isActive={location.pathname === `/tools/${tool.id}`}
                             >
-                              <Wrench className="h-4 w-4" />
+                              {tool.icon ? (
+                                <span className="text-base">{tool.icon}</span>
+                              ) : (
+                                <Wrench className="h-4 w-4" />
+                              )}
                               <span>{tool.name}</span>
                               <ChevronRight
                                 className={`ml-auto h-4 w-4 transition-transform ${
@@ -295,7 +310,11 @@ export const AppShell: React.FC = () => {
                           isActive={location.pathname === `/tools/${tool.id}`}
                           onClick={() => navigate(`/tools/${tool.id}`)}
                         >
-                          <Wrench className="h-4 w-4" />
+                          {tool.icon ? (
+                            <span className="text-base">{tool.icon}</span>
+                          ) : (
+                            <Wrench className="h-4 w-4" />
+                          )}
                           <span>{tool.name}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
