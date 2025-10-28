@@ -46,8 +46,34 @@ export const AppShell: React.FC = () => {
 
   // Map tool to Module Federation config
   const getToolConfig = useCallback((tool: Tool): { remoteName: string; remoteUrl: string } | null => {
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // Map production URLs to localhost for development
+    const devUrlMap: Record<string, string> = {
+      'hello-world-tool-cyan.vercel.app': 'http://localhost:3001',
+      'cloudinary-tool.vercel.app': 'http://localhost:3002',
+      'video-asset-manager.vercel.app': 'http://localhost:3004',
+      'podcast-manager-rose.vercel.app': 'http://localhost:3005',
+    };
+
     const getRemoteEntryUrl = (baseUrl: string): string => {
-      const url = new URL(baseUrl);
+      let effectiveUrl = baseUrl;
+
+      // In dev mode, check if this is a production URL and map to localhost
+      if (isDev) {
+        try {
+          const urlObj = new URL(baseUrl);
+          const mappedUrl = devUrlMap[urlObj.hostname];
+          if (mappedUrl) {
+            effectiveUrl = mappedUrl;
+            console.log(`[Dev Mode] Mapped ${baseUrl} → ${effectiveUrl}`);
+          }
+        } catch (e) {
+          // If URL parsing fails, use as-is
+        }
+      }
+
+      const url = new URL(effectiveUrl);
       return `${url.origin}/remoteEntry.js`;
     };
 
