@@ -30,7 +30,7 @@ function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
-              <Route path="tools/:toolId" element={<ToolPage />} />
+              <Route path="tools/:toolId/*" element={<ToolPage />} />
 
               {/* Admin routes with nested children */}
               <Route path="admin" element={<AdminPanel />}>
