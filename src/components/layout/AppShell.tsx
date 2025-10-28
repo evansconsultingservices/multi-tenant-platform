@@ -72,6 +72,13 @@ export const AppShell: React.FC = () => {
       };
     }
 
+    if (tool.url.includes('3005') || tool.url.includes('podcast-manager') || tool.name.toLowerCase().includes('podcast')) {
+      return {
+        remoteName: 'podcastManager',
+        remoteUrl: getRemoteEntryUrl(tool.url),
+      };
+    }
+
     return null;
   }, []);
 
