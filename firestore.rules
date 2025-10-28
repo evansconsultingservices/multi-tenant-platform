@@ -1,0 +1,227 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    /**
+     * Get the current user's document
+     */
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /**
+     * Get the current user's company ID
+     * Supports both companyId and organizationId for backward compatibility
+     */
+    function getUserCompanyId() {
+      let userData = getUserData();
+      return userData.companyId != null ? userData.companyId : userData.organizationId;
+    }
+
+    /**
+     * Check if user belongs to a specific company
+     */
+    function belongsToCompany(companyId) {
+      return request.auth != null && getUserCompanyId() == companyId;
+    }
+
+    /**
+     * Check if user is a super admin
+     */
+    function isSuperAdmin() {
+      return request.auth != null && getUserData().role == 'super_admin';
+    }
+
+    /**
+     * Check if user is an admin (admin or super_admin)
+     */
+    function isAdmin() {
+      let role = getUserData().role;
+      return request.auth != null && (role == 'admin' || role == 'super_admin');
+    }
+
+    /**
+     * Check if document belongs to user's company
+     * Supports both companyId and organizationId fields
+     */
+    function docBelongsToUserCompany(docData) {
+      let docCompanyId = docData.companyId != null ? docData.companyId : docData.organizationId;
+      return docCompanyId == getUserCompanyId();
+    }
+
+    // ============================================
+    // COMPANIES COLLECTION
+    // ============================================
+    match /companies/{companyId} {
+      // Super admins can do everything
+      // Admins can read all companies
+      // Users can only read their own company
+      allow read: if isSuperAdmin() ||
+                     isAdmin() ||
+                     (request.auth != null && getUserCompanyId() == companyId);
+
+      allow create: if isSuperAdmin();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    match /users/{userId} {
+      // Users can read their own profile
+      // Admins can read users in their company
+      // Super admins can read all users
+      allow read: if request.auth != null &&
+                     (request.auth.uid == userId ||
+                      isAdmin() ||
+                      isSuperAdmin() ||
+                      (resource.data != null && docBelongsToUserCompany(resource.data)));
+
+      // Users can update their own profile (limited fields)
+      allow update: if request.auth != null && request.auth.uid == userId &&
+                       // Cannot change these fields
+                       request.resource.data.role == resource.data.role &&
+                       request.resource.data.companyId == resource.data.companyId;
+
+      // Admins can create/update/delete users in their company
+      allow create: if isAdmin() &&
+                       request.resource.data.companyId == getUserCompanyId();
+
+      allow update: if isAdmin() && docBelongsToUserCompany(resource.data);
+      allow delete: if isAdmin() && docBelongsToUserCompany(resource.data);
+
+      // Super admins can do everything
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // TOOLS COLLECTION
+    // ============================================
+    match /tools/{toolId} {
+      // All authenticated users can read tools
+      allow read: if request.auth != null;
+
+      // Only super admins can manage tools
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ============================================
+    // USER TOOL ACCESS (Individual user access to tools)
+    // ============================================
+    match /userToolAccess/{accessId} {
+      // Users can read their own access records
+      // Admins can read access records for their company's users
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() ||
+        isSuperAdmin()
+      );
+
+      // Admins can grant/revoke access for users in their company
+      allow create, update, delete: if isAdmin() || isSuperAdmin();
+    }
+
+    // ============================================
+    // COMPANY TOOL ACCESS (Company-level access to tools)
+    // ============================================
+    match /companyToolAccess/{accessId} {
+      // Users can read access for their company
+      // Admins can read all company access
+      allow read: if request.auth != null && (
+        belongsToCompany(resource.data.companyId) ||
+        isAdmin() ||
+        isSuperAdmin()
+      );
+
+      // Only admins and super admins can manage company-level access
+      allow create, update, delete: if isAdmin() || isSuperAdmin();
+    }
+
+    // ============================================
+    // AUDIT LOGS
+    // ============================================
+    match /auditLogs/{logId} {
+      // Only allow reading logs for your company
+      allow read: if request.auth != null &&
+                     (docBelongsToUserCompany(resource.data) || isSuperAdmin());
+
+      // Only system can write audit logs (via backend)
+      allow create: if request.auth != null;
+      allow update, delete: if false; // Logs are immutable
+    }
+
+    // ============================================
+    // TOOL USAGE LOGS
+    // ============================================
+    match /toolUsageLogs/{logId} {
+      // Users can read their own logs
+      // Admins can read logs for their company
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() ||
+        isSuperAdmin()
+      );
+
+      // Only system can write logs
+      allow create: if request.auth != null;
+      allow update, delete: if false; // Logs are immutable
+    }
+
+    // ============================================
+    // PODCAST EPISODES (Podcast Manager Tool)
+    // ============================================
+    match /podcastEpisodes/{episodeId} {
+      // Users can read episodes from their company
+      // Super admins can read all episodes
+      allow read: if request.auth != null &&
+                     (docBelongsToUserCompany(resource.data) ||
+                      isSuperAdmin());
+
+      // Users can create episodes for their company only
+      // Must set companyId to their own company
+      allow create: if request.auth != null &&
+                       request.resource.data.companyId == getUserCompanyId();
+
+      // Users can update episodes from their company
+      // Cannot change the companyId field
+      allow update: if request.auth != null &&
+                       docBelongsToUserCompany(resource.data) &&
+                       request.resource.data.companyId == resource.data.companyId;
+
+      // Users can delete episodes from their company
+      allow delete: if request.auth != null &&
+                       docBelongsToUserCompany(resource.data);
+    }
+
+    // ============================================
+    // PODCAST AUDIT LOGS (Podcast Manager Tool)
+    // ============================================
+    match /podcastAuditLogs/{logId} {
+      // Users can read audit logs from their company
+      // Super admins can read all logs
+      allow read: if request.auth != null &&
+                     (docBelongsToUserCompany(resource.data) ||
+                      isSuperAdmin());
+
+      // Allow creating audit logs (system-generated)
+      // Must set companyId to current user's company
+      allow create: if request.auth != null &&
+                       request.resource.data.companyId == getUserCompanyId();
+
+      // Audit logs are immutable (compliance requirement)
+      allow update, delete: if false;
+    }
+
+    // ============================================
+    // DEFAULT: DENY ALL
+    // ============================================
+    // Any collection not explicitly defined above is denied by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
