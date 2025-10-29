@@ -48,32 +48,38 @@ export const ToolFrame: React.FC<{ toolId: string }> = ({ toolId }) => {
 
   // Map tool to Module Federation config
   const getToolConfig = (tool: Tool): ToolConfig | null => {
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // Map production URLs to localhost for development
+    const devUrlMap: Record<string, string> = {
+      'video-asset-manager.vercel.app': 'http://localhost:3004',
+      'podcast-manager-rose.vercel.app': 'http://localhost:3005',
+    };
+
     // Dynamically derive remote URL from tool URL
     // Convert http://localhost:3001 to http://localhost:3001/remoteEntry.js
     const getRemoteEntryUrl = (baseUrl: string): string => {
-      const url = new URL(baseUrl);
+      let effectiveUrl = baseUrl;
+
+      // In dev mode, check if this is a production URL and map to localhost
+      if (isDev) {
+        try {
+          const urlObj = new URL(baseUrl);
+          const mappedUrl = devUrlMap[urlObj.hostname];
+          if (mappedUrl) {
+            effectiveUrl = mappedUrl;
+            console.log(`✅ [TOOLFRAME DEV MODE] Mapped ${baseUrl} → ${effectiveUrl}`);
+          }
+        } catch (e) {
+          console.error(`❌ [TOOLFRAME] URL parsing failed:`, e);
+        }
+      }
+
+      const url = new URL(effectiveUrl);
       return `${url.origin}/remoteEntry.js`;
     };
 
     // Map based on tool URL/name to determine the remote name
-    if (tool.url.includes('3001') || tool.name.toLowerCase().includes('hello world')) {
-      return {
-        remoteName: 'helloWorld',
-        exposedModule: './App',
-        remoteUrl: getRemoteEntryUrl(tool.url),
-        fallbackUrl: tool.url
-      };
-    }
-
-    if (tool.url.includes('3002') || tool.name.toLowerCase().includes('cloudinary')) {
-      return {
-        remoteName: 'cloudinaryTool',
-        exposedModule: './App',
-        remoteUrl: getRemoteEntryUrl(tool.url),
-        fallbackUrl: tool.url
-      };
-    }
-
     if (tool.url.includes('3004') || tool.name.toLowerCase().includes('video asset')) {
       return {
         remoteName: 'videoAssetManager',

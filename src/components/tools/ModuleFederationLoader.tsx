@@ -131,6 +131,51 @@ export const ModuleFederationLoader: React.FC<ModuleFederationLoaderProps> = ({
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [RemoteComponent, setRemoteComponent] = React.useState<React.ComponentType | null>(null);
 
+  // Inject CSS for the remote module
+  React.useEffect(() => {
+    // Extract base URL from remoteEntry.js URL
+    const baseUrl = remoteUrl.replace('/remoteEntry.js', '');
+
+    // Create CSS link element with data attribute for cleanup
+    const linkId = `remote-css-${remoteName}`;
+    const existingLink = document.getElementById(linkId);
+
+    if (!existingLink) {
+      // CSS files are built with content hash, so we try common patterns
+      // For production builds, the CSS is typically in /static/css/main.*.css
+      // We'll use a pattern that works with Webpack's output
+      const cssUrl = `${baseUrl}/static/css/main.css`;
+
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.type = 'text/css';
+      link.href = cssUrl;
+      link.setAttribute('data-remote', remoteName);
+
+      // Add error handler to log if CSS fails to load
+      link.onerror = () => {
+        console.warn(`[Module Federation] Failed to load CSS for ${remoteName} from ${cssUrl}`);
+      };
+
+      link.onload = () => {
+        console.log(`[Module Federation] Successfully loaded CSS for ${remoteName}`);
+      };
+
+      document.head.appendChild(link);
+      console.log(`[Module Federation] Injecting CSS link for ${remoteName}: ${cssUrl}`);
+    }
+
+    return () => {
+      // Clean up CSS when component unmounts
+      const link = document.getElementById(linkId);
+      if (link) {
+        link.remove();
+        console.log(`[Module Federation] Removed CSS for ${remoteName}`);
+      }
+    };
+  }, [remoteUrl, remoteName]);
+
   React.useEffect(() => {
     let isMounted = true;
 

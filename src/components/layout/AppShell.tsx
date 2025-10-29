@@ -3,19 +3,24 @@ import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { ToolService } from '@/services/tool.service';
 import { MenuLoaderService } from '@/services/menuLoader.service';
 import { Tool } from '@/types/tool.types';
 import { MenuItem } from '@/types/menu.types';
+import { Company } from '@/types/company.types';
+import { db } from '@/services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import {
-  Settings,
   LogOut,
   Wrench,
   Home,
   Shield,
   ChevronRight,
   Building2,
-  Cog
+  Cog,
+  Moon,
+  Sun
 } from 'lucide-react';
 import {
   Sidebar,
@@ -38,11 +43,13 @@ import {
 
 export const AppShell: React.FC = () => {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [tools, setTools] = useState<Tool[]>([]);
   const [toolMenus, setToolMenus] = useState<Map<string, MenuItem[]>>(new Map());
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['admin']));
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   // Map tool to Module Federation config
   const getToolConfig = useCallback((tool: Tool): { remoteName: string; remoteUrl: string } | null => {
@@ -50,8 +57,6 @@ export const AppShell: React.FC = () => {
 
     // Map production URLs to localhost for development
     const devUrlMap: Record<string, string> = {
-      'hello-world-tool-cyan.vercel.app': 'http://localhost:3001',
-      'cloudinary-tool.vercel.app': 'http://localhost:3002',
       'video-asset-manager.vercel.app': 'http://localhost:3004',
       'podcast-manager-rose.vercel.app': 'http://localhost:3005',
     };
@@ -59,37 +64,32 @@ export const AppShell: React.FC = () => {
     const getRemoteEntryUrl = (baseUrl: string): string => {
       let effectiveUrl = baseUrl;
 
+      console.log(`🔍 [APPSHELL] getRemoteEntryUrl called with baseUrl: ${baseUrl}`);
+      console.log(`🔍 [APPSHELL] isDev: ${isDev}`);
+
       // In dev mode, check if this is a production URL and map to localhost
       if (isDev) {
         try {
           const urlObj = new URL(baseUrl);
+          console.log(`🔍 [APPSHELL] Parsed hostname: ${urlObj.hostname}`);
           const mappedUrl = devUrlMap[urlObj.hostname];
+          console.log(`🔍 [APPSHELL] Mapped URL from devUrlMap: ${mappedUrl}`);
           if (mappedUrl) {
             effectiveUrl = mappedUrl;
-            console.log(`[Dev Mode] Mapped ${baseUrl} → ${effectiveUrl}`);
+            console.log(`✅ [APPSHELL DEV MODE] Mapped ${baseUrl} → ${effectiveUrl}`);
+          } else {
+            console.log(`❌ [APPSHELL] No mapping found for ${urlObj.hostname}`);
           }
         } catch (e) {
-          // If URL parsing fails, use as-is
+          console.error(`❌ [APPSHELL] URL parsing failed:`, e);
         }
       }
 
       const url = new URL(effectiveUrl);
-      return `${url.origin}/remoteEntry.js`;
+      const finalUrl = `${url.origin}/remoteEntry.js`;
+      console.log(`🎯 [APPSHELL] Final remoteEntry URL: ${finalUrl}`);
+      return finalUrl;
     };
-
-    if (tool.url.includes('3001') || tool.name.toLowerCase().includes('hello world')) {
-      return {
-        remoteName: 'helloWorld',
-        remoteUrl: getRemoteEntryUrl(tool.url),
-      };
-    }
-
-    if (tool.url.includes('3002') || tool.name.toLowerCase().includes('cloudinary')) {
-      return {
-        remoteName: 'cloudinaryTool',
-        remoteUrl: getRemoteEntryUrl(tool.url),
-      };
-    }
 
     if (tool.url.includes('3004') || tool.name.toLowerCase().includes('video asset')) {
       return {
@@ -160,6 +160,33 @@ export const AppShell: React.FC = () => {
     loadUserTools();
   }, [user, loadToolMenus]);
 
+  // Fetch company name if user has a companyId
+  useEffect(() => {
+    const loadCompanyName = async () => {
+      if (!user?.companyId) {
+        setCompanyName(null);
+        return;
+      }
+
+      try {
+        const companyRef = doc(db, 'companies', user.companyId);
+        const companySnap = await getDoc(companyRef);
+
+        if (companySnap.exists()) {
+          const companyData = companySnap.data() as Company;
+          setCompanyName(companyData.name);
+        } else {
+          setCompanyName(null);
+        }
+      } catch (error) {
+        console.error('Error loading company:', error);
+        setCompanyName(null);
+      }
+    };
+
+    loadCompanyName();
+  }, [user]);
+
   const toggleMenu = (menuId: string) => {
     setExpandedMenus(prev => {
       const next = new Set(prev);
@@ -192,31 +219,33 @@ export const AppShell: React.FC = () => {
   ];
 
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center space-x-2 px-2">
-            <svg className="h-8 w-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="50" cy="50" r="12" fill="#f97316"/>
-              <circle cx="50" cy="15" r="10" fill="#f97316"/>
-              <circle cx="85" cy="30" r="10" fill="#f97316"/>
-              <circle cx="85" cy="70" r="10" fill="#f97316"/>
-              <circle cx="50" cy="85" r="10" fill="#f97316"/>
-              <circle cx="15" cy="70" r="10" fill="#f97316"/>
-              <circle cx="15" cy="30" r="10" fill="#f97316"/>
-              <line x1="50" y1="38" x2="50" y2="25" stroke="#f97316" strokeWidth="4"/>
-              <line x1="59" y1="45" x2="75" y2="35" stroke="#f97316" strokeWidth="4"/>
-              <line x1="59" y1="55" x2="75" y2="65" stroke="#f97316" strokeWidth="4"/>
-              <line x1="50" y1="62" x2="50" y2="75" stroke="#f97316" strokeWidth="4"/>
-              <line x1="41" y1="55" x2="25" y2="65" stroke="#f97316" strokeWidth="4"/>
-              <line x1="41" y1="45" x2="25" y2="35" stroke="#f97316" strokeWidth="4"/>
-            </svg>
-            <div>
-              <h1 className="text-sm font-semibold">Media Orchestrator</h1>
-              <p className="text-xs text-muted-foreground">Tools & Applications</p>
+    <div className="container py-4">
+      <div className="border rounded-lg overflow-hidden h-[calc(100vh-2rem)]">
+        <SidebarProvider className="h-full">
+          <Sidebar collapsible="none">
+          <SidebarHeader>
+            <div className="flex items-center space-x-2 px-2">
+              <svg className="h-8 w-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="12" fill="#f97316"/>
+                <circle cx="50" cy="15" r="10" fill="#f97316"/>
+                <circle cx="85" cy="30" r="10" fill="#f97316"/>
+                <circle cx="85" cy="70" r="10" fill="#f97316"/>
+                <circle cx="50" cy="85" r="10" fill="#f97316"/>
+                <circle cx="15" cy="70" r="10" fill="#f97316"/>
+                <circle cx="15" cy="30" r="10" fill="#f97316"/>
+                <line x1="50" y1="38" x2="50" y2="25" stroke="#f97316" strokeWidth="4"/>
+                <line x1="59" y1="45" x2="75" y2="35" stroke="#f97316" strokeWidth="4"/>
+                <line x1="59" y1="55" x2="75" y2="65" stroke="#f97316" strokeWidth="4"/>
+                <line x1="50" y1="62" x2="50" y2="75" stroke="#f97316" strokeWidth="4"/>
+                <line x1="41" y1="55" x2="25" y2="65" stroke="#f97316" strokeWidth="4"/>
+                <line x1="41" y1="45" x2="25" y2="35" stroke="#f97316" strokeWidth="4"/>
+              </svg>
+              <div>
+                <h1 className="text-sm font-semibold">Media Orchestrator</h1>
+                <p className="text-xs text-muted-foreground">Tools & Applications</p>
+              </div>
             </div>
-          </div>
-        </SidebarHeader>
+          </SidebarHeader>
 
         <SidebarSeparator />
 
@@ -354,53 +383,75 @@ export const AppShell: React.FC = () => {
 
         <SidebarSeparator />
 
-        <SidebarFooter>
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <div className="flex items-center space-x-3 mb-3 px-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.avatarUrl || ''} />
-                  <AvatarFallback>
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </AvatarFallback>
-                </Avatar>
+        <SidebarFooter className="flex-shrink-0 mt-auto">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={toggleTheme}>
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+                <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleSignOut}>
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+
+          <SidebarSeparator className="my-1" />
+
+          {/* User/Company Section at Bottom */}
+          <SidebarGroup className="p-0 pb-6">
+            <SidebarGroupContent className="px-2 pb-4">
+              {companyName && (
+                <div className="flex items-center gap-2 py-1">
+                  <Avatar className="h-7 w-7">
+                    <AvatarFallback className="text-xs">
+                      {companyName[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {companyName}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className={`flex items-center gap-2 py-1 ${companyName ? 'pl-9' : ''}`}>
+                {!companyName && (
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={user?.avatarUrl || ''} />
+                    <AvatarFallback className="text-xs">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
+                  <p className="text-xs font-medium truncate">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-[10px] text-muted-foreground truncate">
                     {user?.email}
                   </p>
                 </div>
               </div>
-
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => navigate('/settings')}
-                    disabled
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Settings</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4" />
-                    <span>Sign Out</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarFooter>
       </Sidebar>
 
       <SidebarInset>
-        <main className="flex-1 overflow-auto">
+        <main className="h-full overflow-auto">
           <Outlet />
         </main>
       </SidebarInset>
-    </SidebarProvider>
+        </SidebarProvider>
+      </div>
+    </div>
   );
 };

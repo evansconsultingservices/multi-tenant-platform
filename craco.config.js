@@ -15,8 +15,6 @@ module.exports = {
           filename: "remoteEntry.js",
           remotes: {
             // Map remote apps - URLs come from environment variables in production
-            helloWorld: `helloWorld@${process.env.REACT_APP_HELLO_WORLD_REMOTE_URL || 'http://localhost:3001'}/remoteEntry.js`,
-            cloudinaryTool: `cloudinaryTool@${process.env.REACT_APP_CLOUDINARY_REMOTE_URL || 'http://localhost:3002'}/remoteEntry.js`,
             videoAssetManager: `videoAssetManager@${process.env.REACT_APP_VIDEO_ASSET_MANAGER_REMOTE_URL || 'http://localhost:3004'}/remoteEntry.js`,
             podcastManager: `podcastManager@${process.env.REACT_APP_PODCAST_MANAGER_REMOTE_URL || 'http://localhost:3005'}/remoteEntry.js`,
           },
@@ -159,13 +157,6 @@ module.exports = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
       "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
-    },
-    proxy: {
-      '/api/cloudinary': {
-        target: 'http://localhost:3003',
-        pathRewrite: { '^/api/cloudinary': '' },
-        changeOrigin: true
-      }
     }
   }
 };
