@@ -55,6 +55,11 @@ export interface CompanySettings {
     connectionString?: string;
     databaseName?: string;
   };
+
+  // Pipedream automation webhooks
+  pipedreamWebhooks?: {
+    scriptBuilderUrl?: string;
+  };
 }
 
 export interface Company {
@@ -80,6 +85,9 @@ export interface Company {
 
   // Settings & Configuration
   settings: CompanySettings;
+
+  // Automation
+  automationApiKey?: string; // API key for outbound automation calls (Bearer token)
 
   // Metadata
   createdAt: Date;
