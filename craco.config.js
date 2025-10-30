@@ -44,20 +44,21 @@ module.exports = {
               eager: true,
             },
             // Share Firebase modules so child apps use same instance and auth state
+            // Using eager:false ensures parent initializes Firebase before child loads it
             "firebase/app": {
               singleton: true,
               requiredVersion: deps.firebase,
-              eager: true,
+              eager: false,
             },
             "firebase/auth": {
               singleton: true,
               requiredVersion: deps.firebase,
-              eager: true,
+              eager: false,
             },
             "firebase/firestore": {
               singleton: true,
               requiredVersion: deps.firebase,
-              eager: true,
+              eager: false,
             },
             // Share shadcn/radix dependencies
             "@radix-ui/react-slot": {
