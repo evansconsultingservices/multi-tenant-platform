@@ -133,38 +133,56 @@ export const ModuleFederationLoader: React.FC<ModuleFederationLoaderProps> = ({
 
   // Inject CSS for the remote module
   React.useEffect(() => {
-    // Extract base URL from remoteEntry.js URL
-    const baseUrl = remoteUrl.replace('/remoteEntry.js', '');
+    const loadCSS = async () => {
+      // Extract base URL from remoteEntry.js URL
+      const baseUrl = remoteUrl.replace('/remoteEntry.js', '');
 
-    // Create CSS link element with data attribute for cleanup
-    const linkId = `remote-css-${remoteName}`;
-    const existingLink = document.getElementById(linkId);
+      // Create CSS link element with data attribute for cleanup
+      const linkId = `remote-css-${remoteName}`;
+      const existingLink = document.getElementById(linkId);
 
-    if (!existingLink) {
-      // CSS files are built with content hash, so we try common patterns
-      // For production builds, the CSS is typically in /static/css/main.*.css
-      // We'll use a pattern that works with Webpack's output
-      const cssUrl = `${baseUrl}/static/css/main.css`;
+      if (!existingLink) {
+        let cssUrl = `${baseUrl}/static/css/main.css`;
 
-      const link = document.createElement('link');
-      link.id = linkId;
-      link.rel = 'stylesheet';
-      link.type = 'text/css';
-      link.href = cssUrl;
-      link.setAttribute('data-remote', remoteName);
+        // Try to fetch asset-manifest.json to get the correct CSS filename with hash
+        try {
+          const manifestUrl = `${baseUrl}/asset-manifest.json`;
+          const response = await fetch(manifestUrl);
 
-      // Add error handler to log if CSS fails to load
-      link.onerror = () => {
-        console.warn(`[Module Federation] Failed to load CSS for ${remoteName} from ${cssUrl}`);
-      };
+          if (response.ok) {
+            const manifest = await response.json();
+            // Get the actual CSS file path from manifest
+            if (manifest.files && manifest.files['main.css']) {
+              cssUrl = `${baseUrl}${manifest.files['main.css']}`;
+              console.log(`[Module Federation] Found CSS in manifest: ${cssUrl}`);
+            }
+          }
+        } catch (error) {
+          console.warn(`[Module Federation] Could not load asset manifest, using default CSS path`, error);
+        }
 
-      link.onload = () => {
-        console.log(`[Module Federation] Successfully loaded CSS for ${remoteName}`);
-      };
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = cssUrl;
+        link.setAttribute('data-remote', remoteName);
 
-      document.head.appendChild(link);
-      console.log(`[Module Federation] Injecting CSS link for ${remoteName}: ${cssUrl}`);
-    }
+        // Add error handler to log if CSS fails to load
+        link.onerror = () => {
+          console.warn(`[Module Federation] Failed to load CSS for ${remoteName} from ${cssUrl}`);
+        };
+
+        link.onload = () => {
+          console.log(`[Module Federation] Successfully loaded CSS for ${remoteName}`);
+        };
+
+        document.head.appendChild(link);
+        console.log(`[Module Federation] Injecting CSS link for ${remoteName}: ${cssUrl}`);
+      }
+    };
+
+    loadCSS();
 
     return () => {
       // Clean up CSS when component unmounts
