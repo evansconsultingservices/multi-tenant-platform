@@ -12,6 +12,7 @@ import { CompanySettingsTab } from './CompanySettingsTab';
 import { CompanyAPIKeysTab } from './CompanyAPIKeysTab';
 import { CompanyUsersTab } from './CompanyUsersTab';
 import { CompanyToolsTab } from './CompanyToolsTab';
+import { CompanyWebhooksTab } from './CompanyWebhooksTab';
 
 export const CompanyDetailsPage: React.FC = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -145,6 +146,7 @@ export const CompanyDetailsPage: React.FC = () => {
                   <TabsTrigger value="users" className="w-full justify-start">👥 Users</TabsTrigger>
                   <TabsTrigger value="tools" className="w-full justify-start">🛠️ Tools</TabsTrigger>
                   <TabsTrigger value="api-keys" className="w-full justify-start">🔑 API Keys</TabsTrigger>
+                  <TabsTrigger value="webhooks" className="w-full justify-start">🔗 Webhooks</TabsTrigger>
                 </TabsList>
               </div>
 
@@ -168,6 +170,13 @@ export const CompanyDetailsPage: React.FC = () => {
 
                 <TabsContent value="api-keys" className="mt-0">
                   <CompanyAPIKeysTab company={company} />
+                </TabsContent>
+
+                <TabsContent value="webhooks" className="mt-0">
+                  <CompanyWebhooksTab
+                    company={company}
+                    onUpdateCompany={handleUpdateCompany}
+                  />
                 </TabsContent>
               </div>
             </Tabs>
