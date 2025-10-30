@@ -133,12 +133,11 @@ export const ModuleFederationLoader: React.FC<ModuleFederationLoaderProps> = ({
 
   // Inject CSS for the remote module
   React.useEffect(() => {
-    const loadCSS = async () => {
-      // Extract base URL from remoteEntry.js URL
-      const baseUrl = remoteUrl.replace('/remoteEntry.js', '');
+    // Extract base URL from remoteEntry.js URL
+    const baseUrl = remoteUrl.replace('/remoteEntry.js', '');
+    const linkId = `remote-css-${remoteName}`;
 
-      // Create CSS link element with data attribute for cleanup
-      const linkId = `remote-css-${remoteName}`;
+    const loadCSS = async () => {
       const existingLink = document.getElementById(linkId);
 
       if (!existingLink) {
