@@ -43,6 +43,22 @@ module.exports = {
               requiredVersion: deps["react-router-dom"],
               eager: true,
             },
+            // Share Firebase modules so child apps use same instance and auth state
+            "firebase/app": {
+              singleton: true,
+              requiredVersion: deps.firebase,
+              eager: true,
+            },
+            "firebase/auth": {
+              singleton: true,
+              requiredVersion: deps.firebase,
+              eager: true,
+            },
+            "firebase/firestore": {
+              singleton: true,
+              requiredVersion: deps.firebase,
+              eager: true,
+            },
             // Share shadcn/radix dependencies
             "@radix-ui/react-slot": {
               singleton: true,
