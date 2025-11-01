@@ -25,6 +25,8 @@ module.exports = {
             "./BaseCompanyService": "./src/services/base.service",
             // Expose Firebase instance for child tools to use the same Firebase app
             "./Firebase": "./src/services/firebase",
+            // Expose Dialog component as single source of truth for all child apps
+            "./Dialog": "./src/components/ui/dialog",
           },
           shared: {
             ...deps,
