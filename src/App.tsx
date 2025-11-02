@@ -27,7 +27,7 @@ const AppContent: React.FC = () => {
   }, [theme]);
 
   return (
-    <div ref={wrapperRef} className="parent-app-scope">
+    <div ref={wrapperRef} className="parent-app-scope min-h-screen bg-background text-foreground">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route

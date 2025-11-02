@@ -31,8 +31,14 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal container={typeof document !== 'undefined' ? document.body : undefined}>
+>(({ className, children, ...props }, ref) => {
+  // Find the parent-app-scope container to ensure theme CSS variables are inherited
+  const container = typeof document !== 'undefined'
+    ? document.querySelector('.parent-app-scope') || document.body
+    : undefined;
+
+  return (
+  <DialogPortal container={container}>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
@@ -53,7 +59,8 @@ const DialogContent = React.forwardRef<
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
-))
+  );
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({

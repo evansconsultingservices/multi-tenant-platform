@@ -20,7 +20,11 @@ import {
   Building2,
   Cog,
   Moon,
-  Sun
+  Sun,
+  LayoutDashboard,
+  Newspaper,
+  Mic,
+  LucideIcon
 } from 'lucide-react';
 import {
   Sidebar,
@@ -40,6 +44,34 @@ import {
   SidebarProvider,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+// Helper function to get icon component from icon name string
+const getIconComponent = (iconName?: string): LucideIcon | null => {
+  if (!iconName) return null;
+
+  const iconMap: Record<string, LucideIcon> = {
+    LayoutDashboard,
+    Newspaper,
+    Mic,
+    Home,
+    Shield,
+    Building2,
+    Wrench,
+    Cog,
+  };
+
+  return iconMap[iconName] || null;
+};
 
 export const AppShell: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -50,6 +82,7 @@ export const AppShell: React.FC = () => {
   const [toolMenus, setToolMenus] = useState<Map<string, MenuItem[]>>(new Map());
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['admin']));
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
 
   // Map tool to Module Federation config
   const getToolConfig = useCallback((tool: Tool): { remoteName: string; remoteUrl: string } | null => {
@@ -199,12 +232,17 @@ export const AppShell: React.FC = () => {
     });
   };
 
-  const handleSignOut = async () => {
+  const handleSignOutClick = () => {
+    setShowSignOutDialog(true);
+  };
+
+  const handleSignOutConfirm = async () => {
     try {
       await signOut();
     } catch (error) {
       console.error('Sign-out error:', error);
     }
+    setShowSignOutDialog(false);
   };
 
   if (!user) {
@@ -340,18 +378,22 @@ export const AppShell: React.FC = () => {
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <SidebarMenuSub>
-                              {toolMenus.get(tool.id)!.map((menuItem) => (
-                                <SidebarMenuSubItem key={menuItem.id}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={location.pathname === `/tools/${tool.id}${menuItem.path}`}
-                                  >
-                                    <Link to={`/tools/${tool.id}${menuItem.path}`}>
-                                      <span>{menuItem.label}</span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
+                              {toolMenus.get(tool.id)!.map((menuItem) => {
+                                const IconComponent = getIconComponent(menuItem.icon);
+                                return (
+                                  <SidebarMenuSubItem key={menuItem.id}>
+                                    <SidebarMenuSubButton
+                                      asChild
+                                      isActive={location.pathname === `/tools/${tool.id}${menuItem.path}`}
+                                    >
+                                      <Link to={`/tools/${tool.id}${menuItem.path}`}>
+                                        {IconComponent && <IconComponent className="h-4 w-4" />}
+                                        <span>{menuItem.label}</span>
+                                      </Link>
+                                    </SidebarMenuSubButton>
+                                  </SidebarMenuSubItem>
+                                );
+                              })}
                             </SidebarMenuSub>
                           </CollapsibleContent>
                         </SidebarMenuItem>
@@ -396,7 +438,7 @@ export const AppShell: React.FC = () => {
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={handleSignOut}>
+              <SidebarMenuButton onClick={handleSignOutClick}>
                 <LogOut className="h-4 w-4" />
                 <span>Sign Out</span>
               </SidebarMenuButton>
@@ -452,6 +494,24 @@ export const AppShell: React.FC = () => {
       </SidebarInset>
         </SidebarProvider>
       </div>
+
+      {/* Sign Out Confirmation Dialog */}
+      <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to sign out? You will need to sign in again to access your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSignOutConfirm}>
+              Sign Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

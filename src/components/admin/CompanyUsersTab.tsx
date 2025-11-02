@@ -8,7 +8,7 @@ import { Company } from '@/types/company.types';
 import { UserProfile, UserRole } from '@/types/user.types';
 import { UserService } from '@/services/user.service';
 import { InviteUserDialog } from './InviteUserDialog';
-import { ManageUserToolsDialog } from './ManageUserToolsDialog';
+import { EditUserWithToolsDialog } from './EditUserWithToolsDialog';
 
 interface CompanyUsersTabProps {
   company: Company;
@@ -19,7 +19,7 @@ export const CompanyUsersTab: React.FC<CompanyUsersTabProps> = ({ company }) => 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [showToolsDialog, setShowToolsDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -59,6 +59,16 @@ export const CompanyUsersTab: React.FC<CompanyUsersTabProps> = ({ company }) => 
       setShowInviteDialog(false);
     } catch (error) {
       console.error('Error inviting user:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, updates: Partial<UserProfile>) => {
+    try {
+      await UserService.updateUser(userId, updates);
+      await loadUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
       throw error;
     }
   };
@@ -184,25 +194,16 @@ export const CompanyUsersTab: React.FC<CompanyUsersTabProps> = ({ company }) => 
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setShowToolsDialog(true);
-                          }}
-                        >
-                          Manage Tools
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRemoveUser(user.id, `${user.firstName} ${user.lastName}`)}
-                        >
-                          Remove
-                        </Button>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowEditDialog(true);
+                        }}
+                      >
+                        Edit User
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -219,13 +220,13 @@ export const CompanyUsersTab: React.FC<CompanyUsersTabProps> = ({ company }) => 
         defaultCompanyId={company.id}
       />
 
-      {selectedUser && (
-        <ManageUserToolsDialog
-          open={showToolsDialog}
-          onOpenChange={setShowToolsDialog}
-          user={selectedUser}
-        />
-      )}
+      <EditUserWithToolsDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        user={selectedUser}
+        onUpdateUser={handleUpdateUser}
+        onRemoveUser={handleRemoveUser}
+      />
     </div>
   );
 };
