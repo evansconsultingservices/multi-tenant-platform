@@ -232,8 +232,7 @@ export class AuthService {
       const isFirstUser = await this.isFirstUser();
       const isSuperAdminEmail = this.SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '');
 
-      // SECURITY: Validate super admin assignment
-      let role = UserRole.USER;
+      // SECURITY: Only first user (super admin) can self-register
       if (isFirstUser) {
         if (!isSuperAdminEmail) {
           const errorMsg = `Security: First user ${firebaseUser.email} is not authorized for super admin access`;
@@ -244,34 +243,48 @@ export class AuthService {
 
           throw new Error('Platform initialization required. Please contact your system administrator.');
         }
-        role = UserRole.SUPER_ADMIN;
+
+        // Create super admin account (first user only)
+        const newUserProfile: UserProfile = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          role: UserRole.SUPER_ADMIN,
+          firstName: this.extractFirstName(firebaseUser.displayName || ''),
+          lastName: this.extractLastName(firebaseUser.displayName || ''),
+          avatarUrl: firebaseUser.photoURL || undefined,
+          companyId: 'default',
+          assignedTools: [],
+          lastLogin: now,
+          accountCreated: now,
+          totalLoginCount: 1,
+          theme: 'dark',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          language: 'en',
+        };
+
+        await setDoc(userRef, {
+          ...newUserProfile,
+          lastLogin: serverTimestamp(),
+          accountCreated: serverTimestamp(),
+        });
+
         console.log(`Super admin account created for whitelisted email: ${firebaseUser.email}`);
+        return newUserProfile;
       }
 
-      const newUserProfile: UserProfile = {
-        id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        role,
-        firstName: this.extractFirstName(firebaseUser.displayName || ''),
-        lastName: this.extractLastName(firebaseUser.displayName || ''),
-        avatarUrl: firebaseUser.photoURL || undefined,
-        companyId: isFirstUser ? 'default' : 'default', // TODO: Implement proper company assignment
-        assignedTools: [],
-        lastLogin: now,
-        accountCreated: now,
-        totalLoginCount: 1,
-        theme: 'dark',
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        language: 'en',
-      };
+      // SECURITY: Reject unauthorized users (not pre-invited, not first user)
+      const errorMsg = `Access denied: ${firebaseUser.email} is not authorized to access this platform.`;
+      console.error(errorMsg);
 
-      await setDoc(userRef, {
-        ...newUserProfile,
-        lastLogin: serverTimestamp(),
-        accountCreated: serverTimestamp(),
-      });
+      // SECURITY: Log unauthorized access attempt
+      SecurityAuditService.logAccessDenied(
+        firebaseUser.uid,
+        firebaseUser.email || 'unknown',
+        'platform',
+        'User not pre-invited and not first user'
+      );
 
-      return newUserProfile;
+      throw new Error('Access denied. You must be invited by an administrator to access this platform. Please contact your administrator for access.');
     }
   }
 
