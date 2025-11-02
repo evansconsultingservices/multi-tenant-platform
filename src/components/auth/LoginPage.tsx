@@ -3,12 +3,14 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TermsOfService } from './TermsOfService';
 import { PrivacyPolicy } from './PrivacyPolicy';
 
 export const LoginPage: React.FC = () => {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, error, signInWithGoogle } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -92,6 +94,16 @@ export const LoginPage: React.FC = () => {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* Error display */}
+            {error && (
+              <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Sign in button with enhanced styling */}
             <Button
               onClick={handleGoogleSignIn}
