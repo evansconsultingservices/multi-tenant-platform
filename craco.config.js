@@ -117,6 +117,16 @@ module.exports = {
               requiredVersion: deps["@radix-ui/react-collapsible"],
               eager: true,
             },
+            "@radix-ui/react-alert-dialog": {
+              singleton: true,
+              requiredVersion: deps["@radix-ui/react-alert-dialog"],
+              eager: true,
+            },
+            "@radix-ui/react-scroll-area": {
+              singleton: true,
+              requiredVersion: deps["@radix-ui/react-scroll-area"],
+              eager: true,
+            },
             "lucide-react": {
               singleton: true,
               requiredVersion: deps["lucide-react"],
