@@ -22,6 +22,15 @@ import { UserProfile, UserRole } from '../types/user.types';
 
 export class AuthService {
   /**
+   * Whitelist of emails authorized to become super admin
+   * SECURITY: Only these emails can be assigned super_admin role on first login
+   */
+  private static readonly SUPER_ADMIN_EMAILS = [
+    'sean@sneworks.com',
+    'admin@mediaorchestrator.com'
+  ];
+
+  /**
    * Sign in with Google OAuth
    */
   static async signInWithGoogle(): Promise<UserProfile> {
@@ -132,7 +141,19 @@ export class AuthService {
 
       // Create new user profile (no pre-invitation)
       const isFirstUser = await this.isFirstUser();
-      const role = isFirstUser ? UserRole.SUPER_ADMIN : UserRole.USER;
+      const isSuperAdminEmail = this.SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '');
+
+      // SECURITY: Validate super admin assignment
+      let role = UserRole.USER;
+      if (isFirstUser) {
+        if (!isSuperAdminEmail) {
+          const errorMsg = `Security: First user ${firebaseUser.email} is not authorized for super admin access`;
+          console.error(errorMsg);
+          throw new Error('Platform initialization required. Please contact your system administrator.');
+        }
+        role = UserRole.SUPER_ADMIN;
+        console.log(`Super admin account created for whitelisted email: ${firebaseUser.email}`);
+      }
 
       const newUserProfile: UserProfile = {
         id: firebaseUser.uid,
