@@ -1,15 +1,25 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
+import { auth } from '../services/firebase';
 import { AuthService } from '../services/auth.service';
 import { UserProfile } from '../types/user.types';
 import { AuthContextType } from '../types/auth.types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Session timeout configuration
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const TOKEN_REFRESH_INTERVAL_MS = 50 * 60 * 1000; // 50 minutes (tokens expire at 60min)
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Session management refs
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const tokenRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
   useEffect(() => {
     const unsubscribe = AuthService.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
@@ -81,6 +91,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
   };
+
+  // Inactivity timeout - auto logout after 30 minutes of no activity
+  useEffect(() => {
+    if (!user) return;
+
+    const resetInactivityTimer = () => {
+      lastActivityRef.current = Date.now();
+
+      // Clear existing timer
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+
+      // Set new timer
+      inactivityTimerRef.current = setTimeout(async () => {
+        console.warn('Session expired due to inactivity (30 minutes)');
+        try {
+          await signOut();
+        } catch (err) {
+          console.error('Auto sign-out error:', err);
+        }
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    // Listen for user activity
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetInactivityTimer, { passive: true });
+    });
+
+    // Initialize timer
+    resetInactivityTimer();
+
+    // Cleanup
+    return () => {
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetInactivityTimer);
+      });
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, [user]);
+
+  // Token refresh - proactively refresh Firebase token every 50 minutes
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshToken = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          await currentUser.getIdToken(true); // Force refresh
+          console.log('Firebase token refreshed successfully');
+        }
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+        // If token refresh fails, sign out for security
+        await signOut();
+      }
+    };
+
+    // Initial refresh
+    refreshToken();
+
+    // Set up interval for periodic refresh
+    tokenRefreshTimerRef.current = setInterval(refreshToken, TOKEN_REFRESH_INTERVAL_MS);
+
+    // Cleanup
+    return () => {
+      if (tokenRefreshTimerRef.current) {
+        clearInterval(tokenRefreshTimerRef.current);
+      }
+    };
+  }, [user]);
 
   const value: AuthContextType = {
     user,
