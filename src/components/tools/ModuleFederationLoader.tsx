@@ -91,14 +91,22 @@ const loadRemoteComponent = (remoteName: string, exposedModule: string, remoteUr
       // First, load the remote script
       await loadRemoteScript(remoteUrl);
 
-      // Wait a bit for the script to register the remote
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for the remote container to be available with retries
+      let container = (window as any)[remoteName];
+      let retries = 0;
+      const maxRetries = 50; // 50 * 100ms = 5 seconds max wait
 
-      // Now check if the remote is available
-      const container = (window as any)[remoteName];
-      if (!container) {
-        throw new Error(`Remote ${remoteName} is not available after loading script from ${remoteUrl}`);
+      while (!container && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        container = (window as any)[remoteName];
+        retries++;
       }
+
+      if (!container) {
+        throw new Error(`Remote ${remoteName} is not available after loading script from ${remoteUrl}. Waited ${retries * 100}ms.`);
+      }
+
+      console.log(`Remote container ${remoteName} became available after ${retries * 100}ms`);
 
       console.log(`Remote container ${remoteName} found, initializing...`);
 
