@@ -17,6 +17,81 @@ import { UserProfile, UserRole, validateUserProfile } from '../types/user.types'
 
 export class UserService {
   /**
+   * Input validation patterns and limits
+   * SECURITY: Prevent XSS, injection, and data pollution
+   */
+  private static readonly NAME_MAX_LENGTH = 100;
+  private static readonly NAME_PATTERN = /^[a-zA-Z\s\-'.]+$/;
+  private static readonly PHONE_PATTERN = /^\+?[0-9\s\-()]{10,20}$/;
+  private static readonly EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  private static readonly DANGEROUS_PATTERNS = [
+    /<script/i,
+    /javascript:/i,
+    /onerror=/i,
+    /onclick=/i,
+    /onload=/i,
+    /<iframe/i,
+    /eval\(/i,
+    /expression\(/i,
+  ];
+
+  /**
+   * Validate user input for XSS and injection attempts
+   * SECURITY: Comprehensive input validation
+   */
+  private static validateUserInput(updates: Partial<UserProfile>): void {
+    // Validate firstName
+    if (updates.firstName !== undefined) {
+      if (updates.firstName.length > this.NAME_MAX_LENGTH) {
+        throw new Error(`First name must be ${this.NAME_MAX_LENGTH} characters or less`);
+      }
+      if (!this.NAME_PATTERN.test(updates.firstName)) {
+        throw new Error('First name contains invalid characters. Use only letters, spaces, hyphens, apostrophes, and periods.');
+      }
+    }
+
+    // Validate lastName
+    if (updates.lastName !== undefined) {
+      if (updates.lastName.length > this.NAME_MAX_LENGTH) {
+        throw new Error(`Last name must be ${this.NAME_MAX_LENGTH} characters or less`);
+      }
+      if (!this.NAME_PATTERN.test(updates.lastName)) {
+        throw new Error('Last name contains invalid characters. Use only letters, spaces, hyphens, apostrophes, and periods.');
+      }
+    }
+
+    // Validate phoneNumber
+    if (updates.phoneNumber !== undefined && updates.phoneNumber) {
+      if (!this.PHONE_PATTERN.test(updates.phoneNumber)) {
+        throw new Error('Invalid phone number format. Use format: +1234567890 or (123) 456-7890');
+      }
+    }
+
+    // Validate email format (if provided)
+    if (updates.email !== undefined && !this.EMAIL_PATTERN.test(updates.email)) {
+      throw new Error('Invalid email format');
+    }
+
+    // Check for XSS and injection patterns in all string fields
+    Object.entries(updates).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        this.DANGEROUS_PATTERNS.forEach(pattern => {
+          if (pattern.test(value)) {
+            throw new Error(`Input contains potentially malicious content in field: ${key}`);
+          }
+        });
+      }
+    });
+
+    // Validate department if provided
+    if (updates.department !== undefined && typeof updates.department === 'string') {
+      if (updates.department.length > this.NAME_MAX_LENGTH) {
+        throw new Error(`Department must be ${this.NAME_MAX_LENGTH} characters or less`);
+      }
+    }
+  }
+
+  /**
    * Get all users
    */
   static async getAllUsers(): Promise<UserProfile[]> {
@@ -133,6 +208,9 @@ export class UserService {
    */
   static async updateUser(userId: string, updates: Partial<UserProfile>): Promise<void> {
     try {
+      // SECURITY: Validate all input before processing
+      this.validateUserInput(updates);
+
       // If updating role or companyId, validate the combination
       if (updates.role || updates.companyId !== undefined) {
         const userDoc = await getDoc(doc(db, 'users', userId));
