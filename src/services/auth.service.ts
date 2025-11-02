@@ -31,9 +31,80 @@ export class AuthService {
   ];
 
   /**
+   * Rate limiting configuration
+   * SECURITY: Prevents brute force authentication attempts
+   */
+  private static readonly MAX_AUTH_ATTEMPTS = 5;
+  private static readonly LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+  private static authAttempts: Map<string, { count: number; timestamp: number }> = new Map();
+
+  /**
+   * Generate browser/device fingerprint for rate limiting
+   */
+  private static getClientFingerprint(): string {
+    const userAgent = navigator.userAgent;
+    const screenRes = `${window.screen.width}x${window.screen.height}`;
+    const colorDepth = window.screen.colorDepth;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    return `${userAgent}_${screenRes}_${colorDepth}_${timezone}`;
+  }
+
+  /**
+   * Check if client is rate limited
+   * SECURITY: Throws error if too many failed attempts
+   */
+  private static checkRateLimit(clientId: string): void {
+    const attempt = this.authAttempts.get(clientId);
+
+    if (attempt) {
+      const timeSinceLastAttempt = Date.now() - attempt.timestamp;
+
+      // Check if still in lockout period
+      if (attempt.count >= this.MAX_AUTH_ATTEMPTS && timeSinceLastAttempt < this.LOCKOUT_DURATION_MS) {
+        const remainingTime = Math.ceil((this.LOCKOUT_DURATION_MS - timeSinceLastAttempt) / 60000);
+        throw new Error(`Too many sign-in attempts. Please try again in ${remainingTime} minute${remainingTime !== 1 ? 's' : ''}.`);
+      }
+
+      // Reset counter if lockout period has passed
+      if (timeSinceLastAttempt > this.LOCKOUT_DURATION_MS) {
+        this.authAttempts.delete(clientId);
+      }
+    }
+  }
+
+  /**
+   * Record failed authentication attempt
+   */
+  private static recordFailedAttempt(clientId: string): void {
+    const current = this.authAttempts.get(clientId) || { count: 0, timestamp: Date.now() };
+    this.authAttempts.set(clientId, {
+      count: current.count + 1,
+      timestamp: Date.now()
+    });
+
+    const newCount = current.count + 1;
+    if (newCount >= this.MAX_AUTH_ATTEMPTS) {
+      console.warn(`Rate limit triggered for client. ${newCount} failed attempts.`);
+    }
+  }
+
+  /**
+   * Clear rate limit on successful authentication
+   */
+  private static clearRateLimit(clientId: string): void {
+    this.authAttempts.delete(clientId);
+  }
+
+  /**
    * Sign in with Google OAuth
    */
   static async signInWithGoogle(): Promise<UserProfile> {
+    const clientId = this.getClientFingerprint();
+
+    // Check rate limit before attempting sign-in
+    this.checkRateLimit(clientId);
+
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
@@ -41,8 +112,14 @@ export class AuthService {
       // Create or update user profile
       const userProfile = await this.createOrUpdateUserProfile(user);
 
+      // Clear rate limit on successful authentication
+      this.clearRateLimit(clientId);
+
       return userProfile;
     } catch (error: any) {
+      // Record failed attempt for rate limiting
+      this.recordFailedAttempt(clientId);
+
       console.error('Google sign-in error:', error);
       throw new Error(error.message || 'Sign-in failed');
     }
