@@ -28,6 +28,15 @@ export interface CompanySubscription {
   stripeSubscriptionId?: string;
 }
 
+export interface RSSFeed {
+  id: string;
+  url: string;
+  label: string;
+  enabled: boolean;
+  createdAt: Date | string;
+  createdBy: string;
+}
+
 export interface CompanySettings {
   // Feature flags
   featuresEnabled: string[];
@@ -89,6 +98,9 @@ export interface Company {
   // Automation
   automationApiKey?: string; // API key for outbound automation calls (Bearer token)
 
+  // RSS Feeds (for Podcast Manager)
+  rssFeeds?: RSSFeed[];
+
   // Metadata
   createdAt: Date;
   updatedAt: Date;
@@ -129,4 +141,5 @@ export interface UpdateCompanyInput {
   logoUrl?: string;
   status?: CompanyStatus;
   settings?: Partial<CompanySettings>;
+  rssFeeds?: RSSFeed[];
 }

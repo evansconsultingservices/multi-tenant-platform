@@ -10,6 +10,7 @@ import { CompanyAPIKeysTab } from './CompanyAPIKeysTab';
 import { CompanyUsersTab } from './CompanyUsersTab';
 import { CompanyToolsTab } from './CompanyToolsTab';
 import { CompanyWebhooksTab } from './CompanyWebhooksTab';
+import { CompanyRSSFeedsTab } from './CompanyRSSFeedsTab';
 
 export const CompanyDetailsPage: React.FC = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -106,6 +107,7 @@ export const CompanyDetailsPage: React.FC = () => {
                 <TabsTrigger value="settings">⚙️ Settings</TabsTrigger>
                 <TabsTrigger value="users">👥 Users</TabsTrigger>
                 <TabsTrigger value="tools">🛠️ Tools</TabsTrigger>
+                <TabsTrigger value="rss-feeds">📡 RSS Feeds</TabsTrigger>
                 <TabsTrigger value="api-keys">🔑 API Keys</TabsTrigger>
                 <TabsTrigger value="webhooks">🔗 Webhooks</TabsTrigger>
               </TabsList>
@@ -125,6 +127,13 @@ export const CompanyDetailsPage: React.FC = () => {
 
               <TabsContent value="tools">
                 <CompanyToolsTab company={company} />
+              </TabsContent>
+
+              <TabsContent value="rss-feeds">
+                <CompanyRSSFeedsTab
+                  company={company}
+                  onUpdateCompany={handleUpdateCompany}
+                />
               </TabsContent>
 
               <TabsContent value="api-keys">
