@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
 import { UserProfile, UserRole } from '../types/user.types';
+import { SecurityAuditService } from './security-audit.service';
 // import { AuthError } from '../types/auth.types';
 
 export class AuthService {
@@ -63,6 +64,10 @@ export class AuthService {
       // Check if still in lockout period
       if (attempt.count >= this.MAX_AUTH_ATTEMPTS && timeSinceLastAttempt < this.LOCKOUT_DURATION_MS) {
         const remainingTime = Math.ceil((this.LOCKOUT_DURATION_MS - timeSinceLastAttempt) / 60000);
+
+        // SECURITY: Log rate limit trigger
+        SecurityAuditService.logRateLimitTrigger(clientId, remainingTime);
+
         throw new Error(`Too many sign-in attempts. Please try again in ${remainingTime} minute${remainingTime !== 1 ? 's' : ''}.`);
       }
 
@@ -115,10 +120,17 @@ export class AuthService {
       // Clear rate limit on successful authentication
       this.clearRateLimit(clientId);
 
+      // SECURITY: Log successful authentication
+      SecurityAuditService.logAuthSuccess(userProfile.id, userProfile.email);
+
       return userProfile;
     } catch (error: any) {
       // Record failed attempt for rate limiting
       this.recordFailedAttempt(clientId);
+
+      // SECURITY: Log authentication failure
+      const email = error.email || 'unknown';
+      SecurityAuditService.logAuthFailure(email, error.message || 'Sign-in failed');
 
       console.error('Google sign-in error:', error);
       throw new Error(error.message || 'Sign-in failed');
@@ -226,6 +238,10 @@ export class AuthService {
         if (!isSuperAdminEmail) {
           const errorMsg = `Security: First user ${firebaseUser.email} is not authorized for super admin access`;
           console.error(errorMsg);
+
+          // SECURITY: Log unauthorized super admin attempt
+          SecurityAuditService.logUnauthorizedSuperAdminAttempt(firebaseUser.email || 'unknown');
+
           throw new Error('Platform initialization required. Please contact your system administrator.');
         }
         role = UserRole.SUPER_ADMIN;

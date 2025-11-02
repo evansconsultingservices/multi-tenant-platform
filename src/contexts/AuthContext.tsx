@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { AuthService } from '../services/auth.service';
+import { SecurityAuditService } from '../services/security-audit.service';
 import { UserProfile } from '../types/user.types';
 import { AuthContextType } from '../types/auth.types';
 
@@ -108,6 +109,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       inactivityTimerRef.current = setTimeout(async () => {
         console.warn('Session expired due to inactivity (30 minutes)');
         try {
+          // SECURITY: Log session timeout before signing out
+          if (user) {
+            SecurityAuditService.logSessionTimeout(user.id, user.email);
+          }
           await signOut();
         } catch (err) {
           console.error('Auto sign-out error:', err);
@@ -148,6 +153,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('Token refresh failed:', error);
+
+        // SECURITY: Log token refresh failure
+        if (user) {
+          SecurityAuditService.logTokenRefreshFailure(
+            user.id,
+            user.email,
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+        }
+
         // If token refresh fails, sign out for security
         await signOut();
       }

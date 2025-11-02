@@ -14,6 +14,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { UserProfile, UserRole, validateUserProfile } from '../types/user.types';
+import { SecurityAuditService } from './security-audit.service';
+import { auth } from './firebase';
 
 export class UserService {
   /**
@@ -77,6 +79,17 @@ export class UserService {
       if (typeof value === 'string') {
         this.DANGEROUS_PATTERNS.forEach(pattern => {
           if (pattern.test(value)) {
+            // SECURITY: Log XSS/injection attempt
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+              SecurityAuditService.logXSSAttempt(
+                currentUser.uid,
+                currentUser.email || 'unknown',
+                key,
+                value
+              );
+            }
+
             throw new Error(`Input contains potentially malicious content in field: ${key}`);
           }
         });
