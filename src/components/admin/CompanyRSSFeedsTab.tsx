@@ -32,9 +32,63 @@ export const CompanyRSSFeedsTab: React.FC<CompanyRSSFeedsTabProps> = ({
     setFeeds(company.rssFeeds || []);
   }, [company]);
 
+  /**
+   * SECURITY: Validate RSS feed URL to prevent SSRF attacks
+   * Blocks: private IPs, localhost, cloud metadata endpoints, non-HTTP protocols
+   */
   const validateUrl = (url: string): boolean => {
     try {
-      new URL(url);
+      const parsed = new URL(url);
+
+      // Only allow HTTP and HTTPS protocols
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        console.warn('SECURITY: Blocked non-HTTP(S) protocol:', parsed.protocol);
+        return false;
+      }
+
+      const hostname = parsed.hostname.toLowerCase();
+
+      // Block localhost variants
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        console.warn('SECURITY: Blocked localhost access');
+        return false;
+      }
+
+      // Block cloud metadata endpoint (AWS/GCP/Azure)
+      if (hostname === '169.254.169.254') {
+        console.warn('SECURITY: Blocked cloud metadata endpoint access');
+        return false;
+      }
+
+      // Block private IP ranges (RFC 1918)
+      const privateIpPatterns = [
+        /^127\./,           // Loopback (127.0.0.0/8)
+        /^10\./,            // Private class A (10.0.0.0/8)
+        /^192\.168\./,      // Private class C (192.168.0.0/16)
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Private class B (172.16.0.0/12)
+        /^169\.254\./,      // Link-local (169.254.0.0/16)
+        /^0\./,             // Reserved (0.0.0.0/8)
+      ];
+
+      for (const pattern of privateIpPatterns) {
+        if (pattern.test(hostname)) {
+          console.warn('SECURITY: Blocked private IP address:', hostname);
+          return false;
+        }
+      }
+
+      // Block raw IP addresses (require domain names for better traceability)
+      if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+        console.warn('SECURITY: Blocked raw IP address. Please use a domain name.');
+        return false;
+      }
+
+      // Require fully qualified domain name
+      if (!hostname.includes('.')) {
+        console.warn('SECURITY: Hostname must be a fully qualified domain name');
+        return false;
+      }
+
       return true;
     } catch {
       return false;
@@ -48,7 +102,7 @@ export const CompanyRSSFeedsTab: React.FC<CompanyRSSFeedsTabProps> = ({
     }
 
     if (!validateUrl(feed.url)) {
-      setError('Please enter a valid URL');
+      setError('Invalid RSS feed URL. Only public HTTP/HTTPS URLs with domain names are allowed. Private IPs, localhost, and cloud metadata endpoints are blocked for security.');
       return;
     }
 
@@ -74,7 +128,7 @@ export const CompanyRSSFeedsTab: React.FC<CompanyRSSFeedsTabProps> = ({
     }
 
     if (!validateUrl(formData.url)) {
-      setError('Please enter a valid URL');
+      setError('Invalid RSS feed URL. Only public HTTP/HTTPS URLs with domain names are allowed. Private IPs, localhost, and cloud metadata endpoints are blocked for security.');
       return;
     }
 
