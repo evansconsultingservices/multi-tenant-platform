@@ -456,6 +456,8 @@ export class CompanyService extends BaseCompanyService {
         maxUsers: 10,
         maxStorageGB: 5,
       },
+      automationApiKey: data.automationApiKey,
+      rssFeeds: data.rssFeeds || [],
       createdAt: this.convertTimestamps({ date: data.createdAt }).date || new Date(),
       updatedAt: this.convertTimestamps({ date: data.updatedAt }).date || new Date(),
       createdBy: data.createdBy,
