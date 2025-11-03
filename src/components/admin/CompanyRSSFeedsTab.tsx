@@ -128,6 +128,11 @@ export const CompanyRSSFeedsTab: React.FC<CompanyRSSFeedsTabProps> = ({
   };
 
   const handleToggleEnabled = async (feed: RSSFeed) => {
+    // Only confirm when disabling a feed
+    if (feed.enabled && !window.confirm(`Are you sure you want to disable "${feed.label}"? Articles from this feed will no longer be fetched.`)) {
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
