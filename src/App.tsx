@@ -10,9 +10,11 @@ import { AdminSettings } from '@/components/admin/AdminSettings';
 import { CompanyManagement } from '@/components/admin/CompanyManagement';
 import { ToolManagement } from '@/components/admin/ToolManagement';
 import { CompanyDetailsPage } from '@/components/admin/CompanyDetailsPage';
+import { GroupManagement } from '@/components/admin/GroupManagement';
 import { AppShell } from '@/components/layout/AppShell';
 import { ToolPage } from '@/components/tools/ToolFrame';
 import { NotFound } from '@/components/common/NotFound';
+import { Toaster } from '@/components/ui/sonner';
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
@@ -46,6 +48,7 @@ const AppContent: React.FC = () => {
           <Route path="admin" element={<AdminPanel />}>
             <Route index element={<Navigate to="companies" replace />} />
             <Route path="companies" element={<CompanyManagement />} />
+            <Route path="groups" element={<GroupManagement />} />
             <Route path="tools" element={<ToolManagement />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
@@ -57,6 +60,7 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+      <Toaster />
     </div>
   );
 };

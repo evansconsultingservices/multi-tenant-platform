@@ -77,6 +77,7 @@ export interface Company {
   name: string;
   slug: string; // URL-friendly unique identifier (e.g., "acme-corp")
   description?: string;
+  groupId?: string; // Links companies together for shared user management
 
   // Status
   status: CompanyStatus;
@@ -122,6 +123,15 @@ export interface CompanyToolAccess {
   isActive: boolean;
 }
 
+export interface UserCompanyMembership {
+  id: string;
+  userId: string;
+  companyId: string;
+  role: 'admin' | 'user'; // Role within this specific company
+  joinedAt: Date;
+  isActive: boolean;
+}
+
 export interface CreateCompanyInput {
   name: string;
   slug?: string; // Auto-generated if not provided
@@ -140,6 +150,7 @@ export interface UpdateCompanyInput {
   phone?: string;
   logoUrl?: string;
   status?: CompanyStatus;
+  groupId?: string;
   settings?: Partial<CompanySettings>;
   rssFeeds?: RSSFeed[];
 }

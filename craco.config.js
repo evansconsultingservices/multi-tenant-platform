@@ -127,6 +127,11 @@ module.exports = {
               requiredVersion: deps["@radix-ui/react-scroll-area"],
               eager: true,
             },
+            "@radix-ui/react-checkbox": {
+              singleton: true,
+              requiredVersion: deps["@radix-ui/react-checkbox"],
+              eager: true,
+            },
             "lucide-react": {
               singleton: true,
               requiredVersion: deps["lucide-react"],
@@ -145,6 +150,16 @@ module.exports = {
             "tailwind-merge": {
               singleton: true,
               requiredVersion: deps["tailwind-merge"],
+              eager: true,
+            },
+            "sonner": {
+              singleton: true,
+              requiredVersion: deps["sonner"],
+              eager: true,
+            },
+            "next-themes": {
+              singleton: true,
+              requiredVersion: deps["next-themes"],
               eager: true,
             },
             // Share UI components so child apps can use them

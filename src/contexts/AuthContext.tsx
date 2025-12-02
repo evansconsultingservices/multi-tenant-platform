@@ -3,8 +3,10 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { AuthService } from '../services/auth.service';
 import { SecurityAuditService } from '../services/security-audit.service';
+import { CompanyService } from '../services/company.service';
 import { UserProfile } from '../types/user.types';
 import { AuthContextType } from '../types/auth.types';
+import { Company } from '../types/company.types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -16,6 +18,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userCompanies, setUserCompanies] = useState<Company[]>([]);
 
   // Session management refs
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -46,6 +49,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  // Load user companies when user is authenticated
+  useEffect(() => {
+    const loadUserCompanies = async () => {
+      if (user) {
+        try {
+          const companies = await CompanyService.getUserCompanies(user.id);
+          setUserCompanies(companies);
+        } catch (err) {
+          console.error('Error loading user companies:', err);
+          setUserCompanies([]);
+        }
+      } else {
+        setUserCompanies([]);
+      }
+    };
+
+    loadUserCompanies();
+  }, [user]);
 
   const signInWithGoogle = async (): Promise<void> => {
     try {
@@ -90,6 +112,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.error('Profile refresh error:', err);
       }
+    }
+  };
+
+  const switchCompany = async (companyId: string): Promise<void> => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+
+    try {
+      await CompanyService.switchUserCompany(user.id, companyId);
+      // Reload user profile to get updated companyId
+      await refreshUserProfile();
+      // Reload companies list
+      const companies = await CompanyService.getUserCompanies(user.id);
+      setUserCompanies(companies);
+    } catch (err) {
+      console.error('Company switch error:', err);
+      throw err;
     }
   };
 
@@ -190,6 +230,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     getAuthToken,
     refreshUserProfile,
+    userCompanies,
+    switchCompany,
   };
 
   return (

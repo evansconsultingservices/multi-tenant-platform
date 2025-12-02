@@ -10,7 +10,9 @@ import {
   where,
   orderBy,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { UserProfile, UserRole, validateUserProfile } from '../types/user.types';
@@ -440,6 +442,7 @@ export class UserService {
       avatarUrl: data.avatarUrl,
       phoneNumber: data.phoneNumber,
       companyId: data.companyId || data.organizationId, // Support both for migration
+      companies: data.companies || [], // Multi-company support
       organizationRole: data.organizationRole,
       department: data.department,
       assignedTools: data.assignedTools || [],
@@ -464,5 +467,110 @@ export class UserService {
     if (timestamp instanceof Timestamp) return timestamp.toDate();
     if (timestamp.toDate) return timestamp.toDate();
     return new Date();
+  }
+
+  /**
+   * Add user to a company (with permission check)
+   */
+  static async addUserToCompany(
+    userId: string,
+    companyId: string,
+    actorId: string
+  ): Promise<void> {
+    try {
+      // Dynamic import to avoid circular dependency
+      const { CompanyService } = await import('./company.service');
+
+      // Verify actor has permission
+      const canManage = await CompanyService.canManageGroupUsers(actorId, companyId);
+      if (!canManage) {
+        throw new Error('Insufficient permissions to add users to this company');
+      }
+
+      // Verify company exists
+      const company = await CompanyService.getCompanyById(companyId);
+      if (!company) {
+        throw new Error('Company not found');
+      }
+
+      // Update user's companies array
+      const user = await this.getUserById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (user.companies.includes(companyId)) {
+        return; // Already added
+      }
+
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        companies: arrayUnion(companyId),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Audit log
+      await this.logUserAction(userId, 'user_added_to_company', actorId, {
+        companyId,
+        companyName: company.name,
+      });
+    } catch (error) {
+      console.error('Error adding user to company:', error);
+      throw error instanceof Error ? error : new Error('Failed to add user to company');
+    }
+  }
+
+  /**
+   * Remove user from a company (with safeguards)
+   */
+  static async removeUserFromCompany(
+    userId: string,
+    companyId: string,
+    actorId: string
+  ): Promise<void> {
+    try {
+      // Dynamic import to avoid circular dependency
+      const { CompanyService } = await import('./company.service');
+
+      // Verify actor has permission
+      const canManage = await CompanyService.canManageGroupUsers(actorId, companyId);
+      if (!canManage) {
+        throw new Error('Insufficient permissions to remove users from this company');
+      }
+
+      const user = await this.getUserById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Prevent removing last company
+      if (user.companies.length === 1) {
+        throw new Error('Cannot remove user from their last company. Consider deleting the user instead.');
+      }
+
+      // If removing active company, switch to another
+      const updates: any = {
+        companies: arrayRemove(companyId),
+        updatedAt: serverTimestamp(),
+      };
+
+      if (user.companyId === companyId) {
+        const remainingCompanies = user.companies.filter(c => c !== companyId);
+        updates.companyId = remainingCompanies[0];
+      }
+
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, updates);
+
+      // Audit log
+      await this.logUserAction(userId, 'user_removed_from_company', actorId, {
+        companyId,
+        wasActiveCompany: user.companyId === companyId,
+        newActiveCompany: updates.companyId,
+      });
+    } catch (error) {
+      console.error('Error removing user from company:', error);
+      throw error instanceof Error ? error : new Error('Failed to remove user from company');
+    }
   }
 }

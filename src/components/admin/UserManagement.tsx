@@ -59,6 +59,7 @@ export const UserManagement: React.FC = () => {
     try {
       await UserService.createUser({
         ...userData,
+        companies: [userData.companyId], // User belongs to this company
         assignedTools: [],
         theme: 'dark',
         timezone: 'UTC',

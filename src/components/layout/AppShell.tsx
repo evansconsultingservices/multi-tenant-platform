@@ -11,6 +11,8 @@ import { MenuItem } from '@/types/menu.types';
 import { Company } from '@/types/company.types';
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { AppHeader } from '@/components/layout/AppHeader';
+import { toast } from 'sonner';
 import {
   LogOut,
   Wrench,
@@ -24,6 +26,7 @@ import {
   LayoutDashboard,
   Newspaper,
   Mic,
+  Users,
   LucideIcon
 } from 'lucide-react';
 import {
@@ -33,7 +36,6 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -74,7 +76,7 @@ const getIconComponent = (iconName?: string): LucideIcon | null => {
 };
 
 export const AppShell: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, userCompanies, switchCompany } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -83,6 +85,7 @@ export const AppShell: React.FC = () => {
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['admin']));
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
+  const [isLoadingCompanySwitch, setIsLoadingCompanySwitch] = useState(false);
 
   // Map tool to Module Federation config
   const getToolConfig = useCallback((tool: Tool): { remoteName: string; remoteUrl: string } | null => {
@@ -245,6 +248,27 @@ export const AppShell: React.FC = () => {
     setShowSignOutDialog(false);
   };
 
+  const handleCompanySwitch = async (companyId: string) => {
+    if (companyId === user?.companyId) return;
+
+    const targetCompany = userCompanies.find(c => c.id === companyId);
+
+    setIsLoadingCompanySwitch(true);
+    try {
+      await switchCompany(companyId);
+      toast.success(`Switched to ${targetCompany?.name || 'company'}`,  {
+        description: 'All data now reflects the selected company',
+      });
+    } catch (error) {
+      console.error('Company switch error:', error);
+      toast.error('Failed to switch company', {
+        description: error instanceof Error ? error.message : 'An error occurred',
+      });
+    } finally {
+      setIsLoadingCompanySwitch(false);
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -252,6 +276,7 @@ export const AppShell: React.FC = () => {
   // Admin menu items
   const adminMenuItems = [
     { id: 'companies', label: 'Companies', icon: Building2, path: '/admin/companies' },
+    { id: 'groups', label: 'Groups', icon: Users, path: '/admin/groups' },
     { id: 'tools', label: 'Tools', icon: Wrench, path: '/admin/tools' },
     { id: 'settings', label: 'Settings', icon: Cog, path: '/admin/settings' },
   ];
@@ -261,20 +286,6 @@ export const AppShell: React.FC = () => {
       <div className="border rounded-lg overflow-hidden h-[calc(100vh-2rem)]">
         <SidebarProvider className="h-full">
           <Sidebar collapsible="none">
-          <SidebarHeader>
-            <div className="flex items-center space-x-2 px-2">
-              <img
-                src="/orch-icon.png"
-                alt="Media Orchestrator"
-                className="h-8 w-8 object-contain"
-              />
-              <div>
-                <h1 className="text-sm font-semibold">Media Orchestrator</h1>
-                <p className="text-xs text-muted-foreground">Tools & Applications</p>
-              </div>
-            </div>
-          </SidebarHeader>
-
         <SidebarSeparator />
 
         <SidebarContent>
@@ -477,8 +488,22 @@ export const AppShell: React.FC = () => {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
-        <main className="h-full overflow-auto">
+      <SidebarInset className="flex flex-col">
+        <AppHeader
+          companies={userCompanies}
+          currentCompanyId={user.companyId}
+          onCompanySwitch={handleCompanySwitch}
+          isLoading={isLoadingCompanySwitch}
+        />
+        <main className="flex-1 overflow-auto relative">
+          {isLoadingCompanySwitch && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p className="text-sm text-muted-foreground">Switching company...</p>
+              </div>
+            </div>
+          )}
           <Outlet />
         </main>
       </SidebarInset>

@@ -93,9 +93,22 @@ export const CompanyAPIKeysTab: React.FC<CompanyAPIKeysTabProps> = ({ company })
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert('API key copied to clipboard!');
+  const copyToClipboard = (text: string, message: string = 'Copied to clipboard!') => {
+    navigator.clipboard.writeText(text).then(() => {
+      // Create a temporary notification element
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-in fade-in slide-in-from-bottom-2';
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        notification.classList.add('animate-out', 'fade-out', 'slide-out-to-bottom-2');
+        setTimeout(() => notification.remove(), 200);
+      }, 2000);
+    }).catch((err) => {
+      console.error('Failed to copy:', err);
+      alert('Failed to copy to clipboard');
+    });
   };
 
   const handlePermissionToggle = (permission: string) => {
@@ -155,9 +168,20 @@ export const CompanyAPIKeysTab: React.FC<CompanyAPIKeysTabProps> = ({ company })
                   <TableRow key={apiKey.id}>
                     <TableCell className="font-medium">{apiKey.name}</TableCell>
                     <TableCell>
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
-                        {apiKey.keyPrefix}...
-                      </code>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs bg-muted px-2 py-1 rounded">
+                          {apiKey.keyPrefix}...
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => copyToClipboard(apiKey.keyPrefix, 'Key prefix copied!')}
+                          title="Copy key prefix"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={apiKey.status === 'active' ? 'default' : 'secondary'}>
@@ -279,7 +303,7 @@ export const CompanyAPIKeysTab: React.FC<CompanyAPIKeysTabProps> = ({ company })
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => newlyCreatedKey && copyToClipboard(newlyCreatedKey)}
+                  onClick={() => newlyCreatedKey && copyToClipboard(newlyCreatedKey, 'API key copied!')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>

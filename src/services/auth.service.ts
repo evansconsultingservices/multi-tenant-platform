@@ -253,6 +253,7 @@ export class AuthService {
           lastName: this.extractLastName(firebaseUser.displayName || ''),
           avatarUrl: firebaseUser.photoURL || undefined,
           companyId: 'default',
+          companies: [], // Super admins have access to all companies (empty array)
           assignedTools: [],
           lastLogin: now,
           accountCreated: now,

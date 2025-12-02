@@ -1,4 +1,5 @@
 import { UserRole, UserProfile } from './user.types';
+import { Company } from './company.types';
 
 export interface AuthContextType {
   user: UserProfile | null;
@@ -8,6 +9,8 @@ export interface AuthContextType {
   signOut: () => Promise<void>;
   getAuthToken: () => Promise<string | null>;
   refreshUserProfile: () => Promise<void>;
+  userCompanies: Company[];
+  switchCompany: (companyId: string) => Promise<void>;
 }
 
 export interface FirebaseCustomClaims {

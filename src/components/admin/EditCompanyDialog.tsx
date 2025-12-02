@@ -8,7 +8,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 import { Company, CompanyStatus, UpdateCompanyInput } from '@/types/company.types';
+import { useAuth } from '@/contexts/AuthContext';
+import { CompanyService } from '@/services/company.service';
 
 interface EditCompanyDialogProps {
   open: boolean;
@@ -23,8 +27,10 @@ export const EditCompanyDialog: React.FC<EditCompanyDialogProps> = ({
   company,
   onUpdateCompany,
 }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [groupedCompanies, setGroupedCompanies] = useState<Company[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -32,6 +38,7 @@ export const EditCompanyDialog: React.FC<EditCompanyDialogProps> = ({
     website: '',
     phone: '',
     status: CompanyStatus.ACTIVE,
+    groupId: '',
   });
 
   useEffect(() => {
@@ -43,9 +50,26 @@ export const EditCompanyDialog: React.FC<EditCompanyDialogProps> = ({
         website: company.website || '',
         phone: company.phone || '',
         status: company.status,
+        groupId: company.groupId || '',
       });
+
+      // Load other companies in the same group
+      if (company.groupId) {
+        loadGroupedCompanies(company.id);
+      } else {
+        setGroupedCompanies([]);
+      }
     }
   }, [company]);
+
+  const loadGroupedCompanies = async (companyId: string) => {
+    try {
+      const companies = await CompanyService.getGroupedCompanies(companyId);
+      setGroupedCompanies(companies.filter(c => c.id !== companyId));
+    } catch (error) {
+      console.error('Error loading grouped companies:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,14 +93,21 @@ export const EditCompanyDialog: React.FC<EditCompanyDialogProps> = ({
         throw new Error('Please enter a valid email address');
       }
 
-      await onUpdateCompany(company.id, {
+      const updates: UpdateCompanyInput = {
         name: formData.name,
         description: formData.description || undefined,
         contactEmail: formData.contactEmail,
         website: formData.website || undefined,
         phone: formData.phone || undefined,
         status: formData.status,
-      });
+      };
+
+      // Only super admins can update groupId
+      if (user?.role === 'super_admin') {
+        (updates as any).groupId = formData.groupId || undefined;
+      }
+
+      await onUpdateCompany(company.id, updates);
     } catch (err: any) {
       setError(err.message || 'Failed to update company');
     } finally {
@@ -197,6 +228,34 @@ export const EditCompanyDialog: React.FC<EditCompanyDialogProps> = ({
               Inactive or suspended companies cannot access the platform
             </p>
           </div>
+
+          {user?.role === 'super_admin' && (
+            <div className="space-y-2">
+              <label htmlFor="groupId" className="text-sm font-medium text-foreground">
+                Company Group ID (optional)
+              </label>
+              <Input
+                id="groupId"
+                value={formData.groupId}
+                onChange={(e) => handleChange('groupId', e.target.value)}
+                placeholder="e.g., acme-group"
+              />
+              <p className="text-xs text-muted-foreground">
+                Link this company to others in the same group for shared user management.
+                Companies with the same Group ID share a user pool.
+              </p>
+
+              {formData.groupId && groupedCompanies.length > 0 && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Linked Companies</AlertTitle>
+                  <AlertDescription>
+                    Other companies in "{formData.groupId}": {groupedCompanies.map(c => c.name).join(', ')}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md text-sm">

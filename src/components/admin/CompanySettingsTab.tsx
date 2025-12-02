@@ -4,6 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Company, CompanyStatus, UpdateCompanyInput } from '@/types/company.types';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Info } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { CompanyService } from '@/services/company.service';
+import { GroupService } from '@/services/group.service';
+import { CompanyGroup } from '@/types/group.types';
 
 interface CompanySettingsTabProps {
   company: Company;
@@ -14,8 +21,12 @@ export const CompanySettingsTab: React.FC<CompanySettingsTabProps> = ({
   company,
   onUpdateCompany,
 }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [groupedCompanies, setGroupedCompanies] = useState<Company[]>([]);
+  const [availableGroups, setAvailableGroups] = useState<CompanyGroup[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -23,6 +34,7 @@ export const CompanySettingsTab: React.FC<CompanySettingsTabProps> = ({
     website: '',
     phone: '',
     status: CompanyStatus.ACTIVE,
+    groupId: '',
   });
 
   useEffect(() => {
@@ -33,8 +45,42 @@ export const CompanySettingsTab: React.FC<CompanySettingsTabProps> = ({
       website: company.website || '',
       phone: company.phone || '',
       status: company.status,
+      groupId: company.groupId || '',
     });
-  }, [company]);
+
+    // Load available groups if super admin
+    if (user?.role === 'super_admin') {
+      loadAvailableGroups();
+    }
+
+    // Load other companies in the same group
+    if (company.groupId) {
+      loadGroupedCompanies(company.id);
+    } else {
+      setGroupedCompanies([]);
+    }
+  }, [company, user]);
+
+  const loadAvailableGroups = async () => {
+    try {
+      setLoadingGroups(true);
+      const groups = await GroupService.getAllGroups();
+      setAvailableGroups(groups);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  const loadGroupedCompanies = async (companyId: string) => {
+    try {
+      const companies = await CompanyService.getGroupedCompanies(companyId);
+      setGroupedCompanies(companies.filter(c => c.id !== companyId));
+    } catch (error) {
+      console.error('Error loading grouped companies:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,14 +103,34 @@ export const CompanySettingsTab: React.FC<CompanySettingsTabProps> = ({
         throw new Error('Please enter a valid email address');
       }
 
-      await onUpdateCompany({
+      const updates: UpdateCompanyInput = {
         name: formData.name,
-        description: formData.description || undefined,
         contactEmail: formData.contactEmail,
-        website: formData.website || undefined,
-        phone: formData.phone || undefined,
         status: formData.status,
-      });
+      };
+
+      // Only include optional fields if they have values
+      if (formData.description) {
+        updates.description = formData.description;
+      }
+      if (formData.website) {
+        updates.website = formData.website;
+      }
+      if (formData.phone) {
+        updates.phone = formData.phone;
+      }
+
+      // Only super admins can update groupId
+      if (user?.role === 'super_admin') {
+        if (formData.groupId) {
+          (updates as any).groupId = formData.groupId;
+        } else {
+          // Explicitly set to null to clear the groupId
+          (updates as any).groupId = null;
+        }
+      }
+
+      await onUpdateCompany(updates);
 
       alert('Company settings updated successfully');
     } catch (err: any) {
@@ -167,6 +233,62 @@ export const CompanySettingsTab: React.FC<CompanySettingsTabProps> = ({
                   placeholder="Brief description of the company"
                 />
               </div>
+
+              {user?.role === 'super_admin' && (
+                <div className="space-y-2 md:col-span-2">
+                  <label htmlFor="groupId" className="text-sm font-medium text-foreground">
+                    Company Group (optional)
+                  </label>
+                  <Select
+                    value={formData.groupId === '' ? 'none' : formData.groupId}
+                    onValueChange={(value) => handleChange('groupId', value === 'none' ? '' : value)}
+                    disabled={loadingGroups}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingGroups ? "Loading groups..." : "Select a group..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Group</SelectItem>
+                      {/* If current groupId exists but is not in the groups list, show it for backwards compatibility */}
+                      {formData.groupId && !availableGroups.find(g => g.groupId === formData.groupId) && (
+                        <SelectItem value={formData.groupId}>
+                          {formData.groupId} (Group Not Found - May Need to Create)
+                        </SelectItem>
+                      )}
+                      {availableGroups.map((group) => (
+                        <SelectItem key={group.id} value={group.groupId}>
+                          {group.name} ({group.groupId})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Link this company to a group for shared user management.
+                    Companies in the same group share a user pool.
+                  </p>
+
+                  {formData.groupId && groupedCompanies.length > 0 && (
+                    <Alert className="mt-2">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Linked Companies</AlertTitle>
+                      <AlertDescription>
+                        Other companies in this group: {groupedCompanies.map(c => c.name).join(', ')}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {formData.groupId && !availableGroups.find(g => g.groupId === formData.groupId) && (
+                    <Alert className="mt-2" variant="destructive">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Warning</AlertTitle>
+                      <AlertDescription>
+                        Group ID "{formData.groupId}" does not match any existing group.
+                        Consider creating this group or selecting an existing one.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label htmlFor="status" className="text-sm font-medium text-foreground">

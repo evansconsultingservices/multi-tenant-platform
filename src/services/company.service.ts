@@ -432,6 +432,102 @@ export class CompanyService extends BaseCompanyService {
   }
 
   /**
+   * Get all companies a user belongs to (for company switcher)
+   * Super admins see all companies
+   * Regular users see only companies they're members of
+   */
+  static async getUserCompanies(userId: string): Promise<Company[]> {
+    try {
+      const usersRef = collection(db, 'users');
+      const userDoc = await getDoc(doc(usersRef, userId));
+
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+
+      const userData = userDoc.data();
+
+      // Super admins see all companies
+      if (userData.role === 'super_admin') {
+        return this.getAllCompanies();
+      }
+
+      // Regular users: get companies from their `companies` array
+      const companyIds = userData.companies || [];
+
+      if (companyIds.length === 0) {
+        return [];
+      }
+
+      // Fetch all companies the user belongs to
+      const companyPromises = companyIds.map((companyId: string) =>
+        this.getCompanyById(companyId)
+      );
+
+      const companies = await Promise.all(companyPromises);
+
+      // Filter out null values (in case a company was deleted)
+      return companies.filter(company => company !== null) as Company[];
+    } catch (error) {
+      console.error('Error getting user companies:', error);
+      throw error instanceof Error ? error : new Error('Failed to fetch user companies');
+    }
+  }
+
+  /**
+   * Switch user's current company context
+   * Updates the user's `companyId` field in Firestore
+   */
+  static async switchUserCompany(userId: string, newCompanyId: string): Promise<void> {
+    try {
+      const usersRef = collection(db, 'users');
+      const userRef = doc(usersRef, userId);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+
+      const userData = userDoc.data();
+
+      // Super admins can switch to any company
+      if (userData.role === 'super_admin') {
+        await updateDoc(userRef, {
+          companyId: newCompanyId,
+          updatedAt: serverTimestamp(),
+        });
+
+        await this.logAuditEvent('company_context_switched', 'user', userId, {
+          newCompanyId,
+          isSuperAdmin: true,
+        });
+
+        return;
+      }
+
+      // Regular users: verify they belong to the target company
+      const companyIds = userData.companies || [];
+
+      if (!companyIds.includes(newCompanyId)) {
+        throw new Error('Access denied: You do not have access to this company');
+      }
+
+      // Update user's current company context
+      await updateDoc(userRef, {
+        companyId: newCompanyId,
+        updatedAt: serverTimestamp(),
+      });
+
+      await this.logAuditEvent('company_context_switched', 'user', userId, {
+        newCompanyId,
+      });
+    } catch (error) {
+      console.error('Error switching user company:', error);
+      throw error instanceof Error ? error : new Error('Failed to switch company');
+    }
+  }
+
+  /**
    * Helper: Convert Firestore document to Company object
    */
   private static convertDocToCompany(id: string, data: any): Company {
@@ -440,6 +536,7 @@ export class CompanyService extends BaseCompanyService {
       name: data.name,
       slug: data.slug,
       description: data.description,
+      groupId: data.groupId,
       status: data.status,
       contactEmail: data.contactEmail,
       website: data.website,
@@ -503,6 +600,106 @@ export class CompanyService extends BaseCompanyService {
         return 1000; // GB
       default:
         return 5;
+    }
+  }
+
+  /**
+   * Get all companies in the same group as the given company
+   */
+  static async getGroupedCompanies(companyId: string): Promise<Company[]> {
+    try {
+      const company = await this.getCompanyById(companyId);
+
+      if (!company) {
+        throw new Error('Company not found');
+      }
+
+      if (!company.groupId) {
+        return [company]; // Not in a group, return just this company
+      }
+
+      // Query all companies with same groupId
+      const companiesRef = collection(db, 'companies');
+      const q = query(companiesRef, where('groupId', '==', company.groupId));
+      const querySnapshot = await getDocs(q);
+
+      return querySnapshot.docs.map(doc =>
+        this.convertDocToCompany(doc.id, doc.data())
+      );
+    } catch (error) {
+      console.error('Error getting grouped companies:', error);
+      throw error instanceof Error ? error : new Error('Failed to fetch grouped companies');
+    }
+  }
+
+  /**
+   * Get all users across all companies in a group (shared user pool)
+   */
+  static async getGroupUsers(companyId: string): Promise<any[]> {
+    try {
+      const groupedCompanies = await this.getGroupedCompanies(companyId);
+      const companyIds = groupedCompanies.map(c => c.id);
+
+      // Get all users who belong to ANY company in the group
+      const usersRef = collection(db, 'users');
+      const allUsers: any[] = [];
+
+      // Firestore doesn't support 'in' queries with more than 10 items,
+      // so we need to handle this carefully
+      if (companyIds.length <= 10) {
+        const q = query(usersRef, where('companies', 'array-contains-any', companyIds));
+        const snapshot = await getDocs(q);
+        allUsers.push(...snapshot.docs.map(doc => ({ id: doc.id, ...this.convertTimestamps(doc.data()) })));
+      } else {
+        // For larger groups, get all users and filter in memory
+        const snapshot = await getDocs(usersRef);
+        const users = snapshot.docs.map(doc => ({ id: doc.id, ...this.convertTimestamps(doc.data()) }));
+        allUsers.push(...users.filter(user =>
+          user.companies && user.companies.some((c: string) => companyIds.includes(c))
+        ));
+      }
+
+      // Deduplicate by id
+      const uniqueUsers = Array.from(new Map(allUsers.map(u => [u.id, u])).values());
+
+      return uniqueUsers;
+    } catch (error) {
+      console.error('Error getting group users:', error);
+      throw error instanceof Error ? error : new Error('Failed to fetch group users');
+    }
+  }
+
+  /**
+   * Check if user has permission to manage users in this company group
+   */
+  static async canManageGroupUsers(userId: string, companyId: string): Promise<boolean> {
+    try {
+      const usersRef = collection(db, 'users');
+      const userDoc = await getDoc(doc(usersRef, userId));
+
+      if (!userDoc.exists()) {
+        return false;
+      }
+
+      const user = userDoc.data();
+
+      // Super admins can manage any group
+      if (user.role === 'super_admin') {
+        return true;
+      }
+
+      // Admins can manage if they belong to a company in the group
+      if (user.role !== 'admin') {
+        return false;
+      }
+
+      const groupedCompanies = await this.getGroupedCompanies(companyId);
+      const groupCompanyIds = groupedCompanies.map(c => c.id);
+
+      return user.companies && user.companies.some((c: string) => groupCompanyIds.includes(c));
+    } catch (error) {
+      console.error('Error checking group user management permissions:', error);
+      return false;
     }
   }
 }

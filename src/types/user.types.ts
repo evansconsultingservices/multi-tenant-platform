@@ -25,9 +25,10 @@ export interface UserProfile {
   phoneNumber?: string;
 
   // Company (Multi-tenant context)
-  // Optional: super_admins don't belong to companies
-  // Required: admins and users must belong to a company
-  companyId?: string; // Reference to Company document
+  // Multi-company support: users can belong to multiple companies
+  // Super admins have access to all companies (companies array remains empty)
+  companies: string[]; // Array of company IDs user belongs to
+  companyId?: string; // Current/active company context (for data filtering)
   organizationRole?: string; // Deprecated: Use companyId instead
   department?: string;
 

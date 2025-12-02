@@ -62,6 +62,7 @@ export const CompanyUsersDialog: React.FC<CompanyUsersDialogProps> = ({
     try {
       await UserService.createUser({
         ...userData,
+        companies: [userData.companyId], // User belongs to this company
         assignedTools: [],
         theme: 'dark',
         timezone: 'UTC',
