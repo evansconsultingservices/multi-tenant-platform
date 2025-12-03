@@ -16,16 +16,16 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
   company,
   onUpdateCompany
 }) => {
-  const [scriptBuilderUrl, setScriptBuilderUrl] = useState('');
-  const [automationApiKey, setAutomationApiKey] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookApiKey, setWebhookApiKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load current values when component mounts or company changes
   useEffect(() => {
-    setScriptBuilderUrl(company.settings?.pipedreamWebhooks?.scriptBuilderUrl || '');
-    setAutomationApiKey(company.automationApiKey || '');
+    setWebhookUrl(company.settings?.webhooks?.url || '');
+    setWebhookApiKey(company.settings?.webhooks?.apiKey || '');
   }, [company]);
 
   const validateUrl = (url: string): boolean => {
@@ -43,9 +43,9 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
     setError(null);
     setShowSuccess(false);
 
-    // Validate Script Builder URL
-    if (scriptBuilderUrl && !validateUrl(scriptBuilderUrl)) {
-      setError('Please enter a valid URL for the Script Builder webhook');
+    // Validate Webhook URL
+    if (webhookUrl && !validateUrl(webhookUrl)) {
+      setError('Please enter a valid webhook URL');
       return;
     }
 
@@ -53,11 +53,11 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
       setSaving(true);
 
       const updates: any = {
-        automationApiKey: automationApiKey || null,
         settings: {
           ...company.settings,
-          pipedreamWebhooks: {
-            scriptBuilderUrl: scriptBuilderUrl || null,
+          webhooks: {
+            url: webhookUrl || null,
+            apiKey: webhookApiKey || null,
           },
         },
       };
@@ -75,10 +75,10 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
   };
 
   const hasChanges = () => {
-    const currentScriptUrl = company.settings?.pipedreamWebhooks?.scriptBuilderUrl || '';
-    const currentApiKey = company.automationApiKey || '';
+    const currentUrl = company.settings?.webhooks?.url || '';
+    const currentApiKey = company.settings?.webhooks?.apiKey || '';
 
-    return scriptBuilderUrl !== currentScriptUrl || automationApiKey !== currentApiKey;
+    return webhookUrl !== currentUrl || webhookApiKey !== currentApiKey;
   };
 
   return (
@@ -87,7 +87,7 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
         <CardHeader>
           <CardTitle>Webhook Configuration</CardTitle>
           <CardDescription>
-            Configure webhook URLs for Pipedream automation workflows. These webhooks are triggered
+            Configure webhook URLs for automation workflows. These webhooks are triggered
             automatically when creating episodes from articles.
           </CardDescription>
         </CardHeader>
@@ -110,40 +110,39 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
             </Alert>
           )}
 
-          {/* Script Builder URL Field */}
+          {/* Webhook URL Field */}
           <div className="space-y-2">
-            <Label htmlFor="scriptBuilderUrl">
-              Script Builder URL
+            <Label htmlFor="webhookUrl">
+              Webhook URL
             </Label>
             <Input
-              id="scriptBuilderUrl"
+              id="webhookUrl"
               type="url"
-              placeholder="https://your-pipedream-workflow.m.pipedream.net"
-              value={scriptBuilderUrl}
-              onChange={(e) => setScriptBuilderUrl(e.target.value)}
+              placeholder="https://hook.us1.make.com/..."
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
               disabled={saving}
             />
             <p className="text-sm text-muted-foreground">
-              Webhook URL for the script generation workflow. Leave empty to disable automatic script generation.
+              Webhook URL for automation workflows (Make.com, Zapier, n8n, etc.). Leave empty to disable.
             </p>
           </div>
 
-          {/* Automation API Key Field */}
+          {/* Webhook API Key Field */}
           <div className="space-y-2">
-            <Label htmlFor="automationApiKey">
-              Automation API Key
+            <Label htmlFor="webhookApiKey">
+              Webhook API Key (Optional)
             </Label>
             <Input
-              id="automationApiKey"
+              id="webhookApiKey"
               type="password"
-              placeholder="sk_live_..."
-              value={automationApiKey}
-              onChange={(e) => setAutomationApiKey(e.target.value)}
+              placeholder="Enter API key..."
+              value={webhookApiKey}
+              onChange={(e) => setWebhookApiKey(e.target.value)}
               disabled={saving}
             />
             <p className="text-sm text-muted-foreground">
-              Bearer token used for outbound automation calls to Pipedream workflows.
-              This key is sent in the Authorization header.
+              Optional API key sent in the X-API-Key header for webhook authentication.
             </p>
           </div>
 
@@ -159,8 +158,8 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
               <Button
                 variant="outline"
                 onClick={() => {
-                  setScriptBuilderUrl(company.settings?.pipedreamWebhooks?.scriptBuilderUrl || '');
-                  setAutomationApiKey(company.automationApiKey || '');
+                  setWebhookUrl(company.settings?.webhooks?.url || '');
+                  setWebhookApiKey(company.settings?.webhooks?.apiKey || '');
                   setError(null);
                 }}
                 disabled={saving}
@@ -176,10 +175,10 @@ export const CompanyWebhooksTab: React.FC<CompanyWebhooksTabProps> = ({
               How It Works
             </p>
             <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
-              <li>When an article is converted to an episode, a POST request is sent to the Script Builder URL</li>
-              <li>The request includes article data (title, content, author, etc.)</li>
-              <li>The Automation API Key is included as a Bearer token in the Authorization header</li>
-              <li>Episodes with webhook configured start with status='processing' instead of 'draft'</li>
+              <li>When an episode is created, a POST request is sent to the webhook URL</li>
+              <li>The request includes episode data (title, article content, etc.)</li>
+              <li>If configured, the API key is included in the X-API-Key header</li>
+              <li>Your automation platform can then process the episode (generate script, audio, etc.)</li>
             </ul>
           </div>
         </CardContent>

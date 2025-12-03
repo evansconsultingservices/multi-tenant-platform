@@ -65,9 +65,10 @@ export interface CompanySettings {
     databaseName?: string;
   };
 
-  // Pipedream automation webhooks
-  pipedreamWebhooks?: {
-    scriptBuilderUrl?: string;
+  // Webhook configuration for automation
+  webhooks?: {
+    url?: string;
+    apiKey?: string;
   };
 }
 
@@ -95,9 +96,6 @@ export interface Company {
 
   // Settings & Configuration
   settings: CompanySettings;
-
-  // Automation
-  automationApiKey?: string; // API key for outbound automation calls (Bearer token)
 
   // RSS Feeds (for Podcast Manager)
   rssFeeds?: RSSFeed[];

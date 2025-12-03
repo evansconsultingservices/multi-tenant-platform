@@ -1,39 +1,36 @@
+/**
+ * Auth Service
+ *
+ * Handles Firebase Authentication and user profile management.
+ *
+ * NOTE: Firebase Auth operations (signInWithPopup, signOut, onAuthStateChanged)
+ * must remain client-side as they require browser APIs.
+ * User profile management now uses the standalone API.
+ */
+
 import {
   signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  serverTimestamp,
-  collection,
-  query,
-  where,
-  getDocs
-} from 'firebase/firestore';
-import { auth, googleProvider, db } from './firebase';
-import { UserProfile, UserRole } from '../types/user.types';
+import { auth, googleProvider } from './firebase';
+import { api } from './api';
+import { UserProfile } from '../types/user.types';
 import { SecurityAuditService } from './security-audit.service';
-// import { AuthError } from '../types/auth.types';
+
+// Helper to convert date strings to Date objects
+const convertUserDates = (user: UserProfile): UserProfile => ({
+  ...user,
+  lastLogin: user.lastLogin ? new Date(user.lastLogin) : new Date(),
+  accountCreated: user.accountCreated ? new Date(user.accountCreated) : new Date(),
+});
 
 export class AuthService {
   /**
-   * Whitelist of emails authorized to become super admin
-   * SECURITY: Only these emails can be assigned super_admin role on first login
-   */
-  private static readonly SUPER_ADMIN_EMAILS = [
-    'sean@sneworks.com',
-    'admin@mediaorchestrator.com'
-  ];
-
-  /**
    * Rate limiting configuration
    * SECURITY: Prevents brute force authentication attempts
+   * Note: This is client-side rate limiting for UX; server-side rate limiting is also in place
    */
   private static readonly MAX_AUTH_ATTEMPTS = 5;
   private static readonly LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -103,6 +100,7 @@ export class AuthService {
 
   /**
    * Sign in with Google OAuth
+   * Note: Firebase Auth popup must happen client-side
    */
   static async signInWithGoogle(): Promise<UserProfile> {
     const clientId = this.getClientFingerprint();
@@ -114,7 +112,7 @@ export class AuthService {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      // Create or update user profile
+      // Create or update user profile via API
       const userProfile = await this.createOrUpdateUserProfile(user);
 
       // Clear rate limit on successful authentication
@@ -139,6 +137,7 @@ export class AuthService {
 
   /**
    * Sign out current user
+   * Note: Firebase Auth signOut must happen client-side
    */
   static async signOut(): Promise<void> {
     try {
@@ -151,6 +150,7 @@ export class AuthService {
 
   /**
    * Get current auth token
+   * Note: Token retrieval must happen client-side (Firebase SDK)
    */
   static async getAuthToken(): Promise<string | null> {
     try {
@@ -165,217 +165,48 @@ export class AuthService {
   }
 
   /**
-   * Create or update user profile in Firestore
+   * Create or update user profile via API
+   * The API handles:
+   * - Checking for pre-invited users
+   * - First user (super admin) logic with email whitelist
+   * - Profile creation/update with proper timestamps
    */
   static async createOrUpdateUserProfile(firebaseUser: FirebaseUser): Promise<UserProfile> {
-    const userRef = doc(db, 'users', firebaseUser.uid);
-    const userSnap = await getDoc(userRef);
+    const response = await api.post<UserProfile>('/auth/profile', {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      displayName: firebaseUser.displayName,
+      photoURL: firebaseUser.photoURL,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
 
-    const now = new Date();
-
-    if (userSnap.exists()) {
-      // Update existing user
-      const existingData = userSnap.data() as UserProfile;
-
-      const updateData = {
-        lastLogin: serverTimestamp(),
-        totalLoginCount: (existingData.totalLoginCount || 0) + 1,
-        // Update email and display name in case they changed
-        email: firebaseUser.email || existingData.email,
-        avatarUrl: firebaseUser.photoURL || existingData.avatarUrl,
-      };
-
-      await updateDoc(userRef, updateData);
-
-      return {
-        ...existingData,
-        lastLogin: now,
-        totalLoginCount: updateData.totalLoginCount,
-        email: updateData.email,
-        avatarUrl: updateData.avatarUrl,
-      };
-    } else {
-      // Check if user was pre-invited (profile exists with matching email)
-      const preInvitedProfile = await this.findPreInvitedUser(firebaseUser.email || '');
-
-      if (preInvitedProfile) {
-        // Migrate pre-invited profile to use Firebase UID
-        const migratedProfile: UserProfile = {
-          ...preInvitedProfile,
-          id: firebaseUser.uid,
-          avatarUrl: firebaseUser.photoURL || preInvitedProfile.avatarUrl,
-          lastLogin: now,
-          totalLoginCount: 1,
-        };
-
-        // Create profile with Firebase UID
-        await setDoc(userRef, {
-          ...migratedProfile,
-          lastLogin: serverTimestamp(),
-        });
-
-        // Delete old pre-invited profile if it has a different ID
-        if (preInvitedProfile.id !== firebaseUser.uid) {
-          try {
-            const oldRef = doc(db, 'users', preInvitedProfile.id);
-            await deleteDoc(oldRef);
-            console.log(`Deleted old pre-invited profile: ${preInvitedProfile.id}`);
-          } catch (error) {
-            console.error('Error deleting old profile:', error);
-          }
-        }
-
-        return migratedProfile;
-      }
-
-      // Create new user profile (no pre-invitation)
-      const isFirstUser = await this.isFirstUser();
-      const isSuperAdminEmail = this.SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '');
-
-      // SECURITY: Only first user (super admin) can self-register
-      if (isFirstUser) {
-        if (!isSuperAdminEmail) {
-          const errorMsg = `Security: First user ${firebaseUser.email} is not authorized for super admin access`;
-          console.error(errorMsg);
-
-          // SECURITY: Log unauthorized super admin attempt
-          SecurityAuditService.logUnauthorizedSuperAdminAttempt(firebaseUser.email || 'unknown');
-
-          throw new Error('Platform initialization required. Please contact your system administrator.');
-        }
-
-        // Create super admin account (first user only)
-        const newUserProfile: UserProfile = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          role: UserRole.SUPER_ADMIN,
-          firstName: this.extractFirstName(firebaseUser.displayName || ''),
-          lastName: this.extractLastName(firebaseUser.displayName || ''),
-          avatarUrl: firebaseUser.photoURL || undefined,
-          companyId: 'default',
-          companies: [], // Super admins have access to all companies (empty array)
-          assignedTools: [],
-          lastLogin: now,
-          accountCreated: now,
-          totalLoginCount: 1,
-          theme: 'dark',
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          language: 'en',
-        };
-
-        await setDoc(userRef, {
-          ...newUserProfile,
-          lastLogin: serverTimestamp(),
-          accountCreated: serverTimestamp(),
-        });
-
-        console.log(`Super admin account created for whitelisted email: ${firebaseUser.email}`);
-        return newUserProfile;
-      }
-
-      // SECURITY: Reject unauthorized users (not pre-invited, not first user)
-      const errorMsg = `Access denied: ${firebaseUser.email} is not authorized to access this platform.`;
-      console.error(errorMsg);
-
-      // SECURITY: Log unauthorized access attempt
-      SecurityAuditService.logAccessDenied(
-        firebaseUser.uid,
-        firebaseUser.email || 'unknown',
-        'platform',
-        'User not pre-invited and not first user'
-      );
-
-      throw new Error('Access denied. You must be invited by an administrator to access this platform. Please contact your administrator for access.');
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to create/update user profile');
     }
+
+    return convertUserDates(response.data);
   }
 
   /**
-   * Find pre-invited user by email
-   */
-  private static async findPreInvitedUser(email: string): Promise<UserProfile | null> {
-    if (!email) return null;
-
-    try {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', email));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        const data = userDoc.data();
-        return {
-          id: userDoc.id,
-          ...data,
-          lastLogin: data.lastLogin?.toDate?.() || new Date(),
-          accountCreated: data.accountCreated?.toDate?.() || new Date(),
-        } as UserProfile;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error finding pre-invited user:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get user profile by ID
+   * Get user profile by ID via API
    */
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
     try {
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
+      const response = await api.get<UserProfile>(`/auth/profile/${userId}`);
 
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        return {
-          ...data,
-          lastLogin: data.lastLogin?.toDate?.() || new Date(),
-          accountCreated: data.accountCreated?.toDate?.() || new Date(),
-        } as UserProfile;
+      if (!response.success || !response.data) {
+        return null;
       }
 
-      return null;
-    } catch (error) {
-      console.error('Error getting user profile:', error);
+      return convertUserDates(response.data);
+    } catch {
       return null;
     }
-  }
-
-  /**
-   * Check if this is the first user (for super admin assignment)
-   */
-  private static async isFirstUser(): Promise<boolean> {
-    try {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('role', '==', UserRole.SUPER_ADMIN));
-      const querySnapshot = await getDocs(q);
-
-      return querySnapshot.empty;
-    } catch (error) {
-      console.error('Error checking first user:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Extract first name from display name
-   */
-  private static extractFirstName(displayName: string): string {
-    const parts = displayName.trim().split(' ');
-    return parts[0] || '';
-  }
-
-  /**
-   * Extract last name from display name
-   */
-  private static extractLastName(displayName: string): string {
-    const parts = displayName.trim().split(' ');
-    return parts.slice(1).join(' ') || '';
   }
 
   /**
    * Listen to authentication state changes
+   * Note: This Firebase listener must remain client-side
    */
   static onAuthStateChanged(callback: (user: FirebaseUser | null) => void) {
     return onAuthStateChanged(auth, callback);

@@ -3,6 +3,20 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { auth } from './services/firebase';
+
+// Expose auth helper for dev testing (get Firebase ID token from browser console)
+// Usage: getToken()
+(window as any).getToken = async () => {
+  const user = auth.currentUser;
+  if (!user) {
+    console.log('No user logged in');
+    return null;
+  }
+  const token = await user.getIdToken();
+  console.log(token);
+  return token;
+};
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

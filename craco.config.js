@@ -27,6 +27,12 @@ module.exports = {
             "./Firebase": "./src/services/firebase",
             // Expose Dialog component as single source of truth for all child apps
             "./Dialog": "./src/components/ui/dialog",
+            // Expose shared API client for HTTP calls to the standalone API
+            "./Api": "./src/services/api",
+            // Expose Socket.io client for real-time WebSocket updates
+            "./Socket": "./src/services/socket",
+            // Expose Socket hooks for React components
+            "./useSocket": "./src/hooks/useSocket",
           },
           shared: {
             ...deps,
@@ -160,6 +166,18 @@ module.exports = {
             "next-themes": {
               singleton: true,
               requiredVersion: deps["next-themes"],
+              eager: true,
+            },
+            // Share axios for API client
+            "axios": {
+              singleton: true,
+              requiredVersion: deps["axios"],
+              eager: true,
+            },
+            // Share socket.io-client for WebSocket
+            "socket.io-client": {
+              singleton: true,
+              requiredVersion: deps["socket.io-client"],
               eager: true,
             },
             // Share UI components so child apps can use them

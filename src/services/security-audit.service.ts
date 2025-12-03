@@ -1,14 +1,16 @@
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  limit as firestoreLimit,
-} from 'firebase/firestore';
-import { db } from './firebase';
+/**
+ * Security Audit Service
+ *
+ * SECURITY: Comprehensive audit logging for compliance and threat detection
+ * Now uses the standalone API instead of direct Firestore calls.
+ *
+ * - Logs all authentication and authorization events
+ * - Tracks suspicious activities and blocked attacks
+ * - Provides forensic data for security investigations
+ * - Supports SOC 2, PCI DSS 8.2.8, and GDPR requirements
+ */
+
+import { api } from './api';
 
 /**
  * Security event types for comprehensive audit logging
@@ -73,41 +75,12 @@ export interface SecurityAuditLog {
   metadata?: Record<string, any>;
 }
 
-/**
- * Security Audit Service
- *
- * SECURITY: Comprehensive audit logging for compliance and threat detection
- * - Logs all authentication and authorization events
- * - Tracks suspicious activities and blocked attacks
- * - Provides forensic data for security investigations
- * - Supports SOC 2, PCI DSS 8.2.8, and GDPR requirements
- *
- * IMPLEMENTATION NOTES:
- * - Logs are immutable (enforced by Firestore rules)
- * - Only super admins can read logs (enforced by Firestore rules)
- * - Failed logging should never break the main application flow
- * - IP address and user agent captured for forensics
- */
 export class SecurityAuditService {
-  /**
-   * Get client IP address (best effort)
-   * Note: May not work behind proxies/CDNs
-   */
-  private static async getClientIP(): Promise<string | undefined> {
-    try {
-      // In production with Vercel, use x-forwarded-for header
-      // This is a placeholder - actual implementation depends on deployment
-      return undefined;
-    } catch (error) {
-      return undefined;
-    }
-  }
-
   /**
    * Get user agent string
    */
   private static getUserAgent(): string {
-    return navigator.userAgent;
+    return typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
   }
 
   /**
@@ -127,27 +100,16 @@ export class SecurityAuditService {
     }
   ): Promise<void> {
     try {
-      const logsRef = collection(db, 'securityAuditLogs');
-
-      // Build log entry, filtering out undefined values (Firestore doesn't accept undefined)
-      const logEntry: Record<string, any> = {
+      await api.post('/audit', {
         eventType,
         severity,
-        userAgent: this.getUserAgent(),
-        timestamp: serverTimestamp(),
         description,
+        userAgent: this.getUserAgent(),
+        userId: options?.userId,
+        email: options?.email,
+        companyId: options?.companyId,
         metadata: options?.metadata || {},
-      };
-
-      // Only add optional fields if they have values
-      if (options?.userId) logEntry.userId = options.userId;
-      if (options?.email) logEntry.email = options.email;
-      if (options?.companyId) logEntry.companyId = options.companyId;
-
-      const ipAddress = await this.getClientIP();
-      if (ipAddress) logEntry.ipAddress = ipAddress;
-
-      await addDoc(logsRef, logEntry);
+      });
 
       // Log critical events to console for immediate visibility
       if (severity === SecurityEventSeverity.CRITICAL || severity === SecurityEventSeverity.ERROR) {
@@ -408,24 +370,19 @@ export class SecurityAuditService {
 
   /**
    * Get recent security events (super admin only)
-   * NOTE: Access control enforced by Firestore rules
    */
   static async getRecentEvents(limit: number = 100): Promise<SecurityAuditLog[]> {
     try {
-      const logsRef = collection(db, 'securityAuditLogs');
-      const q = query(
-        logsRef,
-        orderBy('timestamp', 'desc'),
-        firestoreLimit(limit)
-      );
+      const response = await api.get<SecurityAuditLog[]>('/audit', { limit });
 
-      const querySnapshot = await getDocs(q);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to fetch security audit logs');
+      }
 
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date(),
-      })) as SecurityAuditLog[];
+      return response.data.map(log => ({
+        ...log,
+        timestamp: new Date(log.timestamp),
+      }));
     } catch (error) {
       console.error('Error fetching security logs:', error);
       throw new Error('Failed to fetch security audit logs');
@@ -437,21 +394,16 @@ export class SecurityAuditService {
    */
   static async getUserEvents(userId: string, limit: number = 50): Promise<SecurityAuditLog[]> {
     try {
-      const logsRef = collection(db, 'securityAuditLogs');
-      const q = query(
-        logsRef,
-        where('userId', '==', userId),
-        orderBy('timestamp', 'desc'),
-        firestoreLimit(limit)
-      );
+      const response = await api.get<SecurityAuditLog[]>('/audit', { userId, limit });
 
-      const querySnapshot = await getDocs(q);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to fetch user security logs');
+      }
 
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date(),
-      })) as SecurityAuditLog[];
+      return response.data.map(log => ({
+        ...log,
+        timestamp: new Date(log.timestamp),
+      }));
     } catch (error) {
       console.error('Error fetching user security logs:', error);
       throw new Error('Failed to fetch user security logs');
@@ -463,21 +415,19 @@ export class SecurityAuditService {
    */
   static async getCriticalEvents(limit: number = 50): Promise<SecurityAuditLog[]> {
     try {
-      const logsRef = collection(db, 'securityAuditLogs');
-      const q = query(
-        logsRef,
-        where('severity', '==', SecurityEventSeverity.CRITICAL),
-        orderBy('timestamp', 'desc'),
-        firestoreLimit(limit)
-      );
+      const response = await api.get<SecurityAuditLog[]>('/audit', {
+        severity: SecurityEventSeverity.CRITICAL,
+        limit,
+      });
 
-      const querySnapshot = await getDocs(q);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to fetch critical security logs');
+      }
 
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date(),
-      })) as SecurityAuditLog[];
+      return response.data.map(log => ({
+        ...log,
+        timestamp: new Date(log.timestamp),
+      }));
     } catch (error) {
       console.error('Error fetching critical security logs:', error);
       throw new Error('Failed to fetch critical security logs');
