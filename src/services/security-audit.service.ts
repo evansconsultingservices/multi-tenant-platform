@@ -129,18 +129,23 @@ export class SecurityAuditService {
     try {
       const logsRef = collection(db, 'securityAuditLogs');
 
-      const logEntry = {
+      // Build log entry, filtering out undefined values (Firestore doesn't accept undefined)
+      const logEntry: Record<string, any> = {
         eventType,
         severity,
-        userId: options?.userId,
-        email: options?.email,
-        companyId: options?.companyId,
-        ipAddress: await this.getClientIP(),
         userAgent: this.getUserAgent(),
         timestamp: serverTimestamp(),
         description,
         metadata: options?.metadata || {},
       };
+
+      // Only add optional fields if they have values
+      if (options?.userId) logEntry.userId = options.userId;
+      if (options?.email) logEntry.email = options.email;
+      if (options?.companyId) logEntry.companyId = options.companyId;
+
+      const ipAddress = await this.getClientIP();
+      if (ipAddress) logEntry.ipAddress = ipAddress;
 
       await addDoc(logsRef, logEntry);
 
