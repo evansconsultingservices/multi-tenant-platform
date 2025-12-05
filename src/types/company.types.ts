@@ -70,6 +70,15 @@ export interface CompanySettings {
     url?: string;
     apiKey?: string;
   };
+
+  // SFTP configuration for file storage
+  sftp?: {
+    host?: string;
+    port?: number;        // Default: 22
+    username?: string;
+    password?: string;    // Encrypted at rest by backend
+    basePath?: string;    // Root directory for file operations
+  };
 }
 
 export interface Company {

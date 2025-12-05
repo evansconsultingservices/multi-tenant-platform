@@ -109,7 +109,7 @@ export const CompanyDetailsPage: React.FC = () => {
                 <TabsTrigger value="tools">🛠️ Tools</TabsTrigger>
                 <TabsTrigger value="rss-feeds">📡 RSS Feeds</TabsTrigger>
                 <TabsTrigger value="api-keys">🔑 API Keys</TabsTrigger>
-                <TabsTrigger value="webhooks">🔗 Webhooks</TabsTrigger>
+                <TabsTrigger value="webhooks">🔗 Integrations</TabsTrigger>
               </TabsList>
             </CardHeader>
 
