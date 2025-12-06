@@ -11,7 +11,31 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { auth } from './firebase';
 
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3010/api/v1';
+// Determine the API URL based on environment and runtime context
+const getApiUrl = (): string => {
+  // First, check if env var is explicitly set (for both local dev and production builds)
+  if (process.env.REACT_APP_API_BASE_URL) {
+    return process.env.REACT_APP_API_BASE_URL;
+  }
+
+  // Runtime fallback: detect production by checking the hostname
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // Production domains
+    if (hostname === 'www.mediaorchestrator.com' || hostname === 'mediaorchestrator.com') {
+      return 'https://api.mediaorchestrator.com/api/v1';
+    }
+    // Vercel preview deployments (parent app)
+    if (hostname.includes('multi-tenant-platform') && hostname.includes('vercel.app')) {
+      return 'https://api.mediaorchestrator.com/api/v1';
+    }
+  }
+
+  // Default for local development
+  return 'http://localhost:3010/api/v1';
+};
+
+const API_BASE_URL = getApiUrl();
 
 // Retry configuration for network errors only
 const MAX_RETRIES = 3;
