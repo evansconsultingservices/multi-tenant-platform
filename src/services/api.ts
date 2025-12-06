@@ -23,11 +23,11 @@ const getApiUrl = (): string => {
     const hostname = window.location.hostname;
     // Production domains
     if (hostname === 'www.mediaorchestrator.com' || hostname === 'mediaorchestrator.com') {
-      return 'https://api.mediaorchestrator.com/api/v1';
+      return 'https://media-orchestrator-api-production.up.railway.app/api/v1';
     }
     // Vercel preview deployments (parent app)
     if (hostname.includes('multi-tenant-platform') && hostname.includes('vercel.app')) {
-      return 'https://api.mediaorchestrator.com/api/v1';
+      return 'https://media-orchestrator-api-production.up.railway.app/api/v1';
     }
   }
 
