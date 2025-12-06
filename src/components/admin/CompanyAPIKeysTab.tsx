@@ -269,6 +269,15 @@ export const CompanyAPIKeysTab: React.FC<CompanyAPIKeysTabProps> = ({ company })
                   />
                   <span className="text-sm">Delete - Remove data</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.permissions.includes('podcast:callback')}
+                    onChange={() => handlePermissionToggle('podcast:callback')}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm">Podcast Callbacks - Allow webhook callbacks from Make.com/Pipedream</span>
+                </label>
               </div>
             </div>
           </div>
